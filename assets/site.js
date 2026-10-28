@@ -1,6 +1,7 @@
 import {createSheetbase,createIndexedDBStorage,createMemoryRemote,column} from '../dist/index.js';
 const $=id=>document.getElementById(id);
 import {examples as allExamples} from './code-examples.js';
+import {copyText} from './clipboard.js';
 const english=document.documentElement.lang==='en';
 const t=(sk,en)=>english?en:sk;
 const examples=allExamples[english?'en':'sk'];
@@ -9,7 +10,7 @@ function selectExample(button){selectedExample=button.dataset.example;document.q
 document.querySelectorAll('[data-example]').forEach(button=>button.addEventListener('click',()=>selectExample(button)));
 function wireArrows(container,select){container.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const tabs=[...container.querySelectorAll('[role=tab]')];const current=tabs.indexOf(document.activeElement);if(current<0)return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;select(tabs[next]);tabs[next].focus();});}
 wireArrows(document.querySelector('.code-tabs'),selectExample);
-$('copyExample').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(examples[selectedExample].raw);$('copyExample').textContent=t("Skopírované ✓","Copied ✓");}catch{$('copyExample').textContent=t("Označ a skopíruj kód","Select and copy the code");}});
+$('copyExample').addEventListener('click',async()=>{try{await copyText(examples[selectedExample].raw);$('copyExample').textContent=t("Skopírované ✓","Copied ✓");}catch{$('copyExample').textContent=t("Označ a skopíruj kód","Select and copy the code");}});
 
 const DB='sheetbase-docs-v1',CLOUD='sheetbase-docs-cloud-v1',OFFLINE='sheetbase-docs-offline';
 const TODAY='2026-10-27',remoteKey=JSON.stringify(['demo-local','demo-journal','Journal']);

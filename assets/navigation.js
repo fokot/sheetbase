@@ -1,3 +1,4 @@
+import {copyText} from './clipboard.js';
 const english = document.documentElement.lang === 'en';
 const menu = document.querySelector('.menu-button');
 function closeMenu() {
@@ -27,7 +28,7 @@ window.addEventListener('hashchange', () => {
 document.querySelectorAll('[data-copy-code]').forEach(button => {
   button.addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(button.closest('.doc-code').querySelector('code').textContent);
+      await copyText(button.closest('.doc-code').querySelector('code').textContent);
       button.textContent = english ? 'Copied ✓' : 'Skopírované ✓';
     } catch { button.textContent = english ? 'Select and copy the code' : 'Označ a skopíruj kód'; }
   });
