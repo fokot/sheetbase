@@ -19,6 +19,12 @@ document.querySelectorAll('[data-language-switch]').forEach(link => {
   const url = new URL(link.href);
   if (link.hasAttribute('data-preserve-hash')) url.hash = location.hash;
   link.href = url.href;
+  link.addEventListener('click', () => {
+    const language = link.hreflang || link.lang;
+    if (language === 'en' || language === 'sk') {
+      try { localStorage.setItem('sheetbase-docs-language', language); } catch {}
+    }
+  });
 });
 window.addEventListener('hashchange', () => {
   document.querySelectorAll('[data-language-switch]').forEach(link => {

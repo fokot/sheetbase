@@ -2,7 +2,7 @@
 
 **English** · [Slovenčina](README.sk.md)
 
-[Documentation & interactive demo](https://fokot.github.io/sheetbase/en/) · [Slovenská dokumentácia](https://fokot.github.io/sheetbase/) · [GitHub](https://github.com/fokot/sheetbase)
+[Documentation & interactive demo](https://fokot.github.io/sheetbase/en/) · [Slovenská dokumentácia](https://fokot.github.io/sheetbase/sk/) · [GitHub](https://github.com/fokot/sheetbase)
 
 A local-first TypeScript library for personal apps that use Google Sheets as remote storage. Writes commit to local storage first; pending changes sync in batches. No application server, React dependency, or runtime packages.
 
@@ -111,7 +111,7 @@ npm test
 npm run docs
 ```
 
-Open the printed loopback URL, normally `http://127.0.0.1:4188/`. The website includes an English/Slovak switch, rendered README/API pages, highlighted code, and an interactive offline demo using the real SDK, IndexedDB, and a simulated remote. The server exposes only the built `_site/` directory.
+Open the printed loopback URL, normally `http://127.0.0.1:4188/`. The website includes an English/Slovak switch, rendered README/API pages, highlighted code, and an interactive offline demo using the real SDK, IndexedDB, and a simulated remote. The server exposes only the built `_site/` directory. The entry URL selects Slovak only when the browser’s primary language is Slovak; otherwise it selects English. The language switch remembers an explicit choice. Direct `/en/` and `/sk/` links always open the requested language.
 
 ```sh
 npm run build:lib       # JavaScript, declarations and maps → dist/

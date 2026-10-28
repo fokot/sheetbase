@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import vm from 'node:vm';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const site = path.join(root, '_site');
@@ -14,7 +15,7 @@ function htmlFiles(directory = site) {
   });
 }
 test('landing and README pages are available in both languages', () => {
-  for (const [file, lang] of [['index.html','sk'],['en/index.html','en'],['readme.html','sk'],['en/readme.html','en']]) {
+  for (const [file, lang] of [['sk/index.html','sk'],['en/index.html','en'],['sk/readme.html','sk'],['en/readme.html','en']]) {
     const html=read(file);
     assert.match(html, new RegExp(`<html lang="${lang}"`));
     assert.match(html, /data-language-switch/);
@@ -22,7 +23,7 @@ test('landing and README pages are available in both languages', () => {
   }
   assert.match(read('en/index.html'), /Your Sheet\./);
   assert.match(read('en/readme.html'), /Install from GitHub/);
-  assert.match(read('readme.html'), /Inštalácia/);
+  assert.match(read('sk/readme.html'), /Inštalácia/);
 });
 test('every generated local asset and page link resolves under a project Pages path', () => {
   const missing=[];
@@ -40,7 +41,7 @@ test('every generated local asset and page link resolves under a project Pages p
   assert.deepEqual(missing,[]);
 });
 test('README code is highlighted and copyable in both languages', () => {
-  for (const file of ['readme.html','en/readme.html']) {
+  for (const file of ['sk/readme.html','en/readme.html']) {
     const html=read(file);
     assert.match(html,/class="hljs language-ts"/);
     assert.match(html,/class="hljs-keyword"/);
@@ -60,7 +61,7 @@ test('all interactive code examples retain highlighting in both languages', asyn
 });
 test('API, architecture, testing and Google setup have translated HTML routes', () => {
   for(const name of ['API','ARCHITECTURE','TESTING','GOOGLE-SETUP']) {
-    assert.match(read(`docs/${name}.html`),/<html lang="sk"/);
+    assert.match(read(`sk/docs/${name}.html`),/<html lang="sk"/);
     assert.match(read(`en/docs/${name}.html`),/<html lang="en"/);
     assert.match(read(`en/docs/${name}.html`),/data-language-switch/);
   }
@@ -83,4 +84,40 @@ test('GitHub installation consumes dist without build lifecycle hooks', () => {
   assert.equal(pkg.private,true);
   assert.deepEqual(pkg.dependencies??{},{});
   for(const hook of ['build','prepare','prepack','preinstall','install','postinstall'])assert.equal(pkg.scripts[hook],undefined);
+});
+
+function chooseLanguage({browser, languages, saved, blocked=false, pathname='/sheetbase/'} = {}) {
+  let redirected;
+  const location={href:`https://example.test${pathname}?ref=docs#api`,search:'?ref=docs',hash:'#api',replace:url=>{redirected=url;}};
+  vm.runInNewContext(read('assets/language.js'), {
+    navigator:{language:browser, languages},
+    localStorage:{getItem:()=>{if(blocked)throw new Error('Storage blocked');return saved;}},
+    document:{querySelector:selector=>({href:`https://example.test/sheetbase/${selector.includes('"sk"')?'sk':'en'}/`})},
+    location,URL
+  });
+  return redirected;
+}
+test('automatic entry selects Slovak only for the primary Slovak browser language', () => {
+  for(const browser of ['sk','sk-SK','SK-sk'])assert.match(chooseLanguage({browser}),/\/sk\/\?ref=docs#api$/);
+  for(const browser of ['en-US','cs-CZ','de-DE','fr',undefined])assert.match(chooseLanguage({browser}),/\/en\/\?ref=docs#api$/);
+  assert.match(chooseLanguage({browser:'en',languages:['sk-SK','en']}),/\/sk\//);
+  assert.match(chooseLanguage({browser:'sk',languages:['en-US','sk-SK']}),/\/en\//);
+});
+test('an explicit language choice wins and denied storage does not break routing', () => {
+  assert.match(chooseLanguage({browser:'en-US',saved:'sk'}),/\/sk\//);
+  assert.match(chooseLanguage({browser:'sk-SK',saved:'en'}),/\/en\//);
+  assert.match(chooseLanguage({browser:'sk-SK',saved:'invalid'}),/\/sk\//);
+  assert.match(chooseLanguage({browser:'en-US',blocked:true}),/\/en\//);
+  assert.match(chooseLanguage({browser:'sk-SK',blocked:true}),/\/sk\//);
+});
+test('neutral entry pages default to English; explicit language routes never auto-redirect', () => {
+  for(const file of ['index.html','readme.html','docs/API.html']) {
+    const html=read(file);
+    assert.match(html,/<html lang="en"/);
+    assert.match(html,/hreflang="sk"/);
+    assert.ok(html.indexOf('assets/language.js')<html.indexOf('rel="stylesheet"'));
+  }
+  for(const language of ['en','sk'])for(const file of ['index.html','readme.html','docs/API.html']) {
+    assert.ok(!read(`${language}/${file}`).includes('assets/language.js'));
+  }
 });

@@ -2,7 +2,7 @@
 
 [English](README.md) · **Slovenčina**
 
-[Webová dokumentácia](https://fokot.github.io/sheetbase/) · [GitHub](https://github.com/fokot/sheetbase)
+[Webová dokumentácia](https://fokot.github.io/sheetbase/sk/) · [GitHub](https://github.com/fokot/sheetbase)
 
 Samostatná TypeScript knižnica pre osobné aplikácie, ktoré používajú Google Sheets ako vzdialené úložisko. Dáta zapisuje najprv do lokálneho úložiska, potom odosiela čakajúce zmeny v dávkach.
 
@@ -26,7 +26,7 @@ npm test
 npm run docs
 ```
 
-Otvor lokálnu adresu vypísanú serverom, štandardne `http://127.0.0.1:4188/`. Stránka obsahuje interaktívnu ukážku offline zápisu, obnovenia klienta, synchronizácie a stratenej odpovede. Používa skutočné jadro SDK, IndexedDB a simulovaný cloud. Jej testovacie dáta zostávajú v tomto prehliadači. Server počúva len na loopback adrese.
+Otvor lokálnu adresu vypísanú serverom, štandardne `http://127.0.0.1:4188/`. Stránka obsahuje interaktívnu ukážku offline zápisu, obnovenia klienta, synchronizácie a stratenej odpovede. Používa skutočné jadro SDK, IndexedDB a simulovaný cloud. Jej testovacie dáta zostávajú v tomto prehliadači. Server počúva len na loopback adrese. Vstupná URL vyberie slovenčinu iba pri slovenskom primárnom jazyku prehliadača, inak angličtinu. Ručné prepnutie si zapamätá. Priame odkazy `/en/` a `/sk/` vždy otvoria zvolený jazyk.
 
 Pribalený `dist/` umožňuje spustiť príklad a testy knižnice aj bez inštalácie závislostí:
 

@@ -15,7 +15,8 @@ const navigation=fs.readFileSync(path.join(root,'assets/navigation.js'),'utf8').
 const codeExamples=fs.readFileSync(path.join(root,'_site/assets/code-examples.js'),'utf8').replace('export const examples=','const allExamples=');
 const javascript=`(()=>{${clipboard}\n${navigation}})();(()=>{const modules={${modules}};const cache={};function require(name){const id=name.replace(/^\\.\\//,'').replace(/\\.js$/,'');if(cache[id])return cache[id].exports;const module={exports:{}};cache[id]=module;if(!modules[id])throw new Error('Missing bundled module '+id);modules[id](require,module,module.exports);return module.exports;}const {createSheetbase,createIndexedDBStorage,createMemoryRemote,column}=require('./index.js');(async()=>{${clipboard}\n${codeExamples}\n${site}})().catch(console.error);})();`;
 const css=fs.readFileSync(path.join(root,'assets/site.css'),'utf8'),mark=Buffer.from(fs.readFileSync(path.join(root,'assets/mark.svg'))).toString('base64');
-const html=fs.readFileSync(path.join(root,'_site/index.html'),'utf8')
+const html=fs.readFileSync(path.join(root,'_site/sk/index.html'),'utf8')
+ .replaceAll('="../', '="')
  .replace('<link rel="stylesheet" href="assets/site.css">',`<style>${css}</style>`)
  .replaceAll('assets/mark.svg',`data:image/svg+xml;base64,${mark}`)
  .replace('<script type="module" src="assets/navigation.js"></script>','')
