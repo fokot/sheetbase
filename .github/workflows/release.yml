@@ -1,0 +1,47 @@
+name: Build GitHub release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify version tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/check-version.mjs
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/check-dist.mjs
+      - run: npm run build:docs
+      - run: npm run test:docs
+      - name: Verify package installation
+        run: node scripts/check-package.mjs
+      - name: Create installable archive
+        run: npm pack --ignore-scripts
+      - name: Publish GitHub release with compiled library
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" ./*.tgz --verify-tag --title "Sheetbase $RELEASE_TAG" --notes-file .github/RELEASE-NOTES.md

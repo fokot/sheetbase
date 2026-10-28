@@ -1,0 +1,47 @@
+{
+  "name": "@fokot/sheetbase",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first, framework-independent Google Sheets client.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.sk.md",
+    "src"
+  ],
+  "scripts": {
+    "build:lib": "tsc -p tsconfig.json",
+    "build:docs": "node scripts/build-docs.mjs",
+    "test": "npm run build:lib && npm run typecheck:examples && node --test tests/client.test.mjs tests/google.test.mjs",
+    "test:docs": "node --test tests/docs.test.mjs",
+    "docs": "npm run build:docs && node scripts/serve.mjs",
+    "typecheck:examples": "tsc -p tsconfig.examples.json"
+  },
+  "devDependencies": {
+    "highlight.js": "11.12.0",
+    "marked": "18.1.2",
+    "typescript": "5.5.4"
+  },
+  "license": "UNLICENSED",
+  "homepage": "https://fokot.github.io/sheetbase/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fokot/sheetbase.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fokot/sheetbase/issues"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false
+}

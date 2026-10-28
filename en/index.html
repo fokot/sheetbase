@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="Sheetbase — samostatný návrh TypeScript knižnice, ktorá spája lokálne dáta a Google Sheets. Documentation a interaktívna offline ukážka."><title>Sheetbase — Your Sheet. Your backend.</title><link rel="icon" href="../assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="../assets/site.css"></head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar"><a href="#overview" class="brand" aria-label="Sheetbase, overview"><img src="../assets/mark.svg" alt="" width="30" height="30">sheetbase<span class="version">0.1.0</span></a><div class="top-actions"><span class="private"><i></i> Developer preview</span><a href="../" class="language-switch" data-language-switch data-preserve-hash lang="sk" hreflang="sk" aria-label="Prepnúť do slovenčiny">SK <span aria-hidden="true">↔</span></a><a href="../README.md" class="readme-link">README <span aria-hidden="true">↗</span></a><button class="menu-button" aria-expanded="false" aria-controls="sidebar">Menu <span aria-hidden="true">☰</span></button></div></header>
+<div class="layout">
+<aside class="sidebar" id="sidebar"><nav aria-label="Documentation"><p class="nav-label">DOCUMENTATION</p><a href="#overview" class="active">Overview <span>01</span></a><a href="#playground">Live demo <span>02</span></a><a href="#quickstart">Quick start <span>03</span></a><a href="#api">API reference <span>04</span></a><a href="#architecture">How it works <span>05</span></a><a href="#limits">What to expect <span>06</span></a><div class="nav-divider"></div><p class="nav-label">EXPLORE THE LIBRARY</p><a href="../docs/en/API.md">Full reference <span>↗</span></a><a href="../docs/en/ARCHITECTURE.md">Architecture <span>↗</span></a><a href="../docs/en/TESTING.md">Testing <span>↗</span></a><a href="../examples/basic.mjs">Runnable example <span>↗</span></a></nav><div class="sidebar-note"><span class="small-grid" aria-hidden="true">▦</span><p>Data in your account.<br> Code in your app.<br> No application server.</p><span class="mono">TYPESCRIPT · ESM</span></div></aside>
+<main id="main">
+<section id="overview" class="hero section">
+<div class="eyebrow"><span class="tag">DEVELOPER PREVIEW</span><span>Small library. Your data.</span></div>
+<div class="hero-grid"><div class="hero-copy"><h1>Your Sheet.<br> <em>Your backend.</em></h1><p class="lede">Write locally. Sync with Google. Work with your data in a few lines of TypeScript.</p><p class="hero-detail">Sheetbase handles storage, pending changes, and Google Sheets requests. Your app handles what makes it yours.</p><div class="hero-actions"><a class="button primary" href="#playground">Try offline <span aria-hidden="true">↘</span></a><a href="#quickstart" class="text-link">Explore the code <span aria-hidden="true">→</span></a></div><div class="hero-tags"><span>No React dependency</span><span>No runtime packages</span></div></div>
+<div class="hero-visual" aria-label="A local write and the resulting spreadsheet"><div class="code-window"><div class="window-bar"><span><i></i><i></i><i></i></span><span>journal.ts</span><span class="mono">TS</span></div><pre><code><span class="syntax-muted">// Your UI does not have to wait for Google.</span>
+<span class="syntax-purple">await</span> journal.<span class="syntax-green">set</span>(<span class="syntax-yellow">'2026-10-27'</span>, {
+  walk: <span class="syntax-purple">true</span>,
+  pages: <span class="syntax-yellow">24</span>
+});
+
+<span class="syntax-muted">// Saved locally. Ready to sync.</span>
+journal.<span class="syntax-green">subscribe</span>(({ pending }) =&gt; {
+  console.<span class="syntax-green">log</span>(pending);
+});</code></pre><div class="code-bottom"><span class="live-dot"></span> Write to the device first <span>↳</span></div></div><div class="sheet-peek"><div class="sheet-peek-title"><span class="table-mark" aria-hidden="true">▦</span><strong>Journal</strong><span>Google Sheets</span></div><table><thead><tr><th>Date</th><th>Walk</th><th>Pages</th></tr></thead><tbody><tr><td>2026-10-26</td><td>✓</td><td>18</td></tr><tr class="highlight-row"><td>2026-10-27</td><td>✓</td><td>24</td></tr></tbody></table><span class="peek-label">ILLUSTRATIVE RESULT</span></div></div></div>
+<div class="principles"><div><span>01</span><strong>Local first</strong><p>A successful write means a committed storage transaction.</p></div><div><span>02</span><strong>Then Google</strong><p>Pending changes stay queued even after closing the page.</p></div><div><span>03</span><strong>Your own interface</strong><p>Plain TypeScript. Works with your framework.</p></div></div>
+</section>
+<section id="playground" class="section playground-section"><div class="section-caption">01 / TRY IT YOURSELF</div><div class="section-heading"><div><h2>Go offline.<br> <em>Keep writing.</em></h2><p>This demo uses the real SDK core and IndexedDB.<br> A local simulation replaces Google. No sign-in needed.</p></div><div class="demo-legend"><span class="legend-dot"></span> DATA STAYS IN THIS BROWSER</div></div>
+<p class="demo-fallback" id="demoFallback">To start the live demo, serve this directory with <code>npm run docs</code>. The documentation can also be read without the server.</p>
+<div class="playground"><div class="demo-top"><div><span class="demo-title">Daily journal</span><span class="demo-subtitle">3 rows · key Date</span></div><button id="connectionToggle" class="connection-toggle" role="switch" aria-checked="false" aria-label="Demo offline mode" disabled><span class="toggle-track"><span></span></span><span id="connectionText">Online</span></button></div>
+<div class="demo-content"><div class="demo-tabs" role="tablist" aria-label="Displayed data source"><button role="tab" id="tabLocal" aria-selected="true" aria-controls="tablePanel">On this device</button><button role="tab" id="tabRemote" aria-selected="false" aria-controls="tablePanel" tabindex="-1">Simulated Sheet</button></div><div id="tablePanel" role="tabpanel" aria-labelledby="tabLocal" class="demo-table-wrap"><table class="demo-table"><thead><tr><th scope="col">Date</th><th scope="col">Walk</th><th scope="col">Reading</th><th scope="col">Note</th></tr></thead><tbody id="demoRows"><tr><td colspan="4">Loading demo…</td></tr></tbody></table></div><div class="demo-controls"><div><button id="walkButton" class="button small secondary" disabled><span aria-hidden="true">✓</span> Toggle walk</button><button id="pageButton" class="button small secondary" disabled><span aria-hidden="true">＋</span> Read a page</button></div><span class="control-date">EDITING OCT 27</span></div></div>
+<div class="demo-bottom"><span id="demoStatus" class="status-pill" role="status" aria-live="polite">Preparing…</span><div><span class="pending-label"><strong id="pendingCount">0</strong> pending changes</span><button id="syncButton" class="button small primary" disabled>Sync <span aria-hidden="true">↗</span></button></div></div></div>
+<div class="demo-after"><p><strong>Try this:</strong> enable Offline, make a few edits, and click Reopen client. Your changes stay saved. Then reconnect and sync them.</p><button id="reopenButton" class="text-link" disabled>Reopen client <span aria-hidden="true">↻</span></button></div>
+<details class="test-details"><summary>Test a lost response <span>+</span></summary><div><p>The next sync saves your changes to the simulated Sheet but drops the reply. The queue stays intact. Retrying checks the original batch receipt.</p><button class="button small secondary" id="lostButton" disabled>Lose the next response</button><button class="text-link reset-link" id="resetButton" disabled>Reset demo data</button><p id="demoLog" class="mono demo-log" aria-live="polite">Automatic sync is disabled in this demo so you can inspect each step.</p></div></details>
+</section>
+<section id="quickstart" class="section"><div class="section-caption">02 / QUICK START</div><div class="section-heading"><div><h2>One table.<br> <em>A clear API.</em></h2><p>Connection, schema, and writes. No exercise names<br> or habit rules built into the core.</p></div></div>
+<div class="quickstart-grid"><div class="code-example"><div class="example-bar"><div class="code-tabs" role="tablist" aria-label="Usage examples"><button role="tab" aria-selected="true" data-example="connect" id="exampleConnect" aria-controls="exampleCode">Connection</button><button role="tab" aria-selected="false" data-example="offline" id="exampleOffline" aria-controls="exampleCode" tabindex="-1">Offline writes</button><button role="tab" aria-selected="false" data-example="workouts" id="exampleWorkouts" aria-controls="exampleCode" tabindex="-1">Workout sets</button></div><button class="copy-button" id="copyExample" aria-label="Copy example">Copy</button></div><pre id="exampleCode" role="tabpanel" aria-labelledby="exampleConnect"><code>import {
+  createSheetbase, createIndexedDBStorage,
+  createGoogleSheetsRemote, column
+} from '@fokot/sheetbase';
+
+const db = createSheetbase({
+  accountId: googleUser.id,
+  storage: createIndexedDBStorage('my-app'),
+  remote: createGoogleSheetsRemote({
+    getCredentials: () =&gt; ({
+      accountId: googleUser.id,
+      accessToken: tokenInMemory
+    })
+  })
+});
+
+const journal = db.table({
+  spreadsheetId: sheetId,
+  sheet: 'Journal',
+  keyColumn: 'Date',
+  columns: {
+    walk: column.boolean('Walk'),
+    pages: column.number('Pages')
+  }
+});
+
+await journal.open({ create: true });
+await journal.set('2026-10-27', { walk: true });</code></pre></div><div class="quick-notes"><div><span class="note-number">A.</span><h3>Access through your account</h3><p>Your app supplies a verified account and an in-memory token. The library never opens sign-in windows or stores the token.</p></div><div><span class="note-number">B.</span><h3>Typed columns</h3><p>Text, numbers, booleans, JSON, or your own format. <code>null</code> clears a cell; <code>0</code> and <code>false</code> are values.</p></div><div><span class="note-number">C.</span><h3>You own the schema</h3><p>The key lives in column A. You can keep other columns outside the schema; writes preserve them.</p></div><a href="../examples/basic.mjs" class="text-link">Runnable example without Google →</a></div></div>
+<div class="local-install"><span class="mono">RUN LOCALLY</span><code>npm ci&nbsp; → &nbsp;npm test&nbsp; → &nbsp;npm run docs</code><p>The package is marked <code>private: true</code>. It is not published to npm.</p></div>
+</section>
+<section id="api" class="section"><div class="section-caption">03 / THE API</div><div class="section-heading"><div><h2>A small API.<br> <em>No surprises.</em></h2><p>Saving locally and sending to Google are two separate states.</p></div><a href="../docs/en/API.md" class="text-link">Full reference ↗</a></div>
+<div class="api-table-wrap"><table class="api-table"><thead><tr><th>Method</th><th>What it does</th><th>Network</th></tr></thead><tbody><tr><td><code>table.open()</code></td><td>Restores local data. Fetches the Sheet on first use.</td><td>On first load</td></tr><tr><td><code>table.set(key, patch)</code></td><td>Persists changed fields and adds them to the queue.</td><td>In the background</td></tr><tr><td><code>table.get(key) / all()</code></td><td>Returns current decoded local records.</td><td>None</td></tr><tr><td><code>table.delete(key)</code></td><td>Clears managed values while retaining the physical row and other columns.</td><td>In the background</td></tr><tr><td><code>table.subscribe(fn)</code></td><td>Emits data, phase, pending count, and errors.</td><td>None</td></tr><tr><td><code>table.sync()</code></td><td>Sends pending batches and persists acknowledgement.</td><td>Yes</td></tr><tr><td><code>table.refresh()</code></td><td>Fetches the current Sheet while retaining the local queue.</td><td>Yes</td></tr></tbody></table></div>
+<div class="status-explainer"><span class="status-pill pending">pending</span><p>The record is in local storage. <code>pending: 0</code> after a successful sync means the client has no pending operations.</p></div>
+</section>
+<section id="architecture" class="section"><div class="section-caption">04 / UNDER THE HOOD</div><div class="section-heading"><div><h2>Three layers.<br> <em>Each with a purpose.</em></h2><p>Your interface does not have to manage network failures.</p></div></div>
+<div class="architecture"><article><div class="arch-top"><span>01</span><span aria-hidden="true">⌘</span></div><h3>Your application</h3><p>Components, sign-in, and your own rules. No required React integration.</p><code>table.set(key, patch)</code></article><div class="arch-arrow" aria-hidden="true">→</div><article class="arch-core"><div class="arch-top"><span>02</span><img src="../assets/mark.svg" width="25" height="25" alt=""></div><h3>Sheetbase</h3><p>Types, IndexedDB, queues, batches, and retries. Data is isolated by account and table.</p><code>Storage ↔ Sync engine</code></article><div class="arch-arrow" aria-hidden="true">→</div><article><div class="arch-top"><span>03</span><span aria-hidden="true">▦</span></div><h3>Google Sheets</h3><p>Ordinary writes read headers and keys. Values and receipts commit in one batch.</p><code>Sheets API + _Sheetbase</code></article></div>
+<div class="architecture-bottom"><div><h3>Independent when testing, too.</h3><p>Replaceable <code>Storage</code> and <code>Remote</code> adapters let you test network failures, storage errors, and account changes without a real Google Sheet.</p></div><a href="../docs/en/TESTING.md" class="test-count"><strong>29</strong><span>passing SDK tests<br> core + Google API fixture ↗</span></a></div>
+</section>
+<section id="limits" class="section limits-section"><div class="section-caption">05 / KNOW THE LIMITS</div><div class="section-heading"><div><h2>A small backend.<br> <em>Honest about limits.</em></h2><p>Version 0.1 is a working prototype for evaluating the API.</p></div><span class="outline-tag">NOT CONNECTED TO THE TRACKER</span></div>
+<div class="limits-grid"><article><h3>Personal applications</h3><p>A starting point for journals, trackers, and internal tools. Access follows Google account and file permissions.</p></article><article><h3>Manual sheet edits</h3><p>Positions are reread before writing. A renamed managed column or duplicate key stops synchronization; concurrent sorting can still cause a conflict.</p></article><article><h3>Concurrent devices</h3><p>The last successful cell write wins. The library offers neither distributed transactions nor row-level security rules.</p></article><article><h3>Schema and sign-in</h3><p>Automatic schema migrations and OAuth screens are not included. The existing tracker stays unchanged and its data is not imported.</p></article></div>
+<div class="boundary-note"><span aria-hidden="true">↳</span><p>The Google adapter is tested against a simulated API, not your sheets. Sync runs while the app is open; page caching belongs to the app. IndexedDB coordinates browser tabs with Web Locks.</p></div>
+</section>
+<footer><a href="#overview" class="brand"><img src="../assets/mark.svg" alt="" width="23" height="23">sheetbase</a><p>TypeScript · ESM · <a href="https://github.com/fokot/sheetbase">GitHub ↗</a></p><a href="../docs/en/GOOGLE-SETUP.md">Connect to Google ↗</a></footer>
+</main></div><script type="module" src="../assets/navigation.js"></script><script type="module" src="../assets/site.js"></script></body></html>
