@@ -28,10 +28,9 @@ npm run docs
 
 Otvor lokálnu adresu vypísanú serverom, štandardne `http://127.0.0.1:4188/`. Stránka obsahuje interaktívnu ukážku offline zápisu, obnovenia klienta, synchronizácie a stratenej odpovede. Používa skutočné jadro SDK, IndexedDB a simulovaný cloud. Jej testovacie dáta zostávajú v tomto prehliadači. Server počúva len na loopback adrese.
 
-Pribalený `dist/` umožňuje prezrieť ukážku a spustiť príklad aj bez inštalácie závislostí:
+Pribalený `dist/` umožňuje spustiť príklad a testy knižnice aj bez inštalácie závislostí:
 
 ```sh
-node scripts/serve.mjs
 node examples/basic.mjs
 node --test tests/client.test.mjs tests/google.test.mjs
 ```
