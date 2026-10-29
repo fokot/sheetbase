@@ -16,7 +16,7 @@
 </style></head>
 <body>
 <a class="skip" href="#main">Prejsť na obsah</a>
-<header class="topbar"><a href="#overview" class="brand" aria-label="Sheetbase, úvod"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSIjMjU0YzNiIi8+PHBhdGggZD0iTTggOGgxNnYxNkg4ek04IDE0aDE2TTE0IDh2MTYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2UyZWZjNiIgc3Ryb2tlLXdpZHRoPSIxLjYiLz48cGF0aCBkPSJtMTggMTkgMiAyIDUtNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYjhkZThhIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPgo=" alt="" width="30" height="30">sheetbase<span class="version">0.1.0</span></a><div class="top-actions"><span class="private"><i></i> Developer preview</span><a href="en/" class="language-switch" data-language-switch data-preserve-hash lang="en" hreflang="en" aria-label="Switch to English">EN <span aria-hidden="true">↔</span></a><a href="readme.html" class="readme-link">README <span aria-hidden="true">↗</span></a><button class="menu-button" aria-expanded="false" aria-controls="sidebar">Menu <span aria-hidden="true">☰</span></button></div></header>
+<header class="topbar"><a href="#overview" class="brand" aria-label="Sheetbase, úvod"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSIjMjU0YzNiIi8+PHBhdGggZD0iTTggOGgxNnYxNkg4ek04IDE0aDE2TTE0IDh2MTYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2UyZWZjNiIgc3Ryb2tlLXdpZHRoPSIxLjYiLz48cGF0aCBkPSJtMTggMTkgMiAyIDUtNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYjhkZThhIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPgo=" alt="" width="30" height="30">sheetbase<span class="version">0.2.0</span></a><div class="top-actions"><span class="private"><i></i> Developer preview</span><a href="en/" class="language-switch" data-language-switch data-preserve-hash lang="en" hreflang="en" aria-label="Switch to English">EN <span aria-hidden="true">↔</span></a><a href="readme.html" class="readme-link">README <span aria-hidden="true">↗</span></a><button class="menu-button" aria-expanded="false" aria-controls="sidebar">Menu <span aria-hidden="true">☰</span></button></div></header>
 <div class="layout">
 <aside class="sidebar" id="sidebar"><nav aria-label="Dokumentácia"><p class="nav-label">DOKUMENTÁCIA</p><a href="#overview" class="active">Úvod <span>01</span></a><a href="#playground">Živá ukážka <span>02</span></a><a href="#quickstart">Prvé riadky <span>03</span></a><a href="#api">Rozhranie API <span>04</span></a><a href="#architecture">Ako to funguje <span>05</span></a><a href="#limits">Čo očakávať <span>06</span></a><div class="nav-divider"></div><p class="nav-label">V TOMTO ADRESÁRI</p><a href="docs/API.html">Úplná referencia <span>↗</span></a><a href="docs/ARCHITECTURE.html">Architektúra <span>↗</span></a><a href="docs/TESTING.html">Testovanie <span>↗</span></a><a href="examples/basic.mjs">Spustiteľný príklad <span>↗</span></a></nav><div class="sidebar-note"><span class="small-grid" aria-hidden="true">▦</span><p>Dáta v tvojom účte.<br> Kód v tvojej aplikácii.<br> Žiadny vlastný server.</p><span class="mono">TYPESCRIPT · ESM</span></div></aside>
 <main id="main">
@@ -209,9 +209,11 @@ class SheetbaseClient {
     table(definition) {
         this.guard();
         const entries = Object.entries(definition.columns), names = [definition.keyColumn, ...entries.map(([, column]) => column.header)];
-        if (!definition.spreadsheetId.trim() || !definition.sheet.trim() || !entries.length || names.some((name) => !name.trim()) || new Set(names.map((name) => name.toLowerCase())).size !== names.length)
+        if (!definition.spreadsheetId.trim() || !definition.sheet.trim() || (!entries.length && !definition.dynamic) || names.some((name) => !name.trim()) || new Set(names.map((name) => name.toLowerCase())).size !== names.length)
             throw new types_js_1.SheetbaseError('schema', 'Provide a sheet, spreadsheet ID and distinct, non-empty column headers.');
-        const target = { accountId: this.accountId, spreadsheetId: definition.spreadsheetId, sheet: definition.sheet, keyColumn: definition.keyColumn, headers: entries.map(([, column]) => column.header), fingerprint: JSON.stringify([definition.keyColumn, ...entries.map(([field, column]) => [field, column.header, column.codec])]) };
+        if (definition.dynamic && (!definition.dynamic.sheet.trim() || definition.dynamic.sheet === definition.sheet || definition.dynamic.sheet === '_Sheetbase' || !Object.prototype.hasOwnProperty.call(definition.dynamic.codecs, definition.dynamic.defaultType)))
+            throw new types_js_1.SheetbaseError('schema', 'Dynamic tables need a separate metadata tab and a registered default codec.');
+        const target = { accountId: this.accountId, spreadsheetId: definition.spreadsheetId, sheet: definition.sheet, keyColumn: definition.keyColumn, headers: entries.map(([, column]) => column.header), fingerprint: JSON.stringify(definition.dynamic ? [definition.keyColumn, 'dynamic:v1', definition.dynamic.sheet, definition.dynamic.defaultType] : [definition.keyColumn, ...entries.map(([field, column]) => [field, column.header, column.codec])]), ...(definition.dynamic ? { dynamic: { sheet: definition.dynamic.sheet, defaultType: definition.dynamic.defaultType } } : {}) };
         const key = (0, model_js_1.identity)(this.options.namespace ?? 'sheetbase', target), existing = this.tables.get(key);
         if (existing) {
             if (existing.target.fingerprint !== target.fingerprint)
@@ -258,7 +260,7 @@ class SheetbaseClient {
     wake() { for (const table of this.tables.values()) {
         this.attempts.delete(table.key);
         table.emit();
-        this.schedule(table);
+        this.schedule(table, !!table.snapshot().error);
     } }
     setOnline(online) { this.guard(); this.online = online; if (!online) {
         for (const key of this.timers.keys())
@@ -300,17 +302,28 @@ class SheetTable {
     async reload() { const record = await this.client.options.storage.read(this.key); if (record)
         this.publish(record); }
     raw() { if (!this.record?.initialized)
-        throw new types_js_1.SheetbaseError('schema', 'Open this table online once before reading or editing it.'); return (0, model_js_1.apply)(this.record.base, this.record.operations); }
-    decode(key, values) {
-        return { key, values: Object.fromEntries(Object.entries(this.definition.columns).map(([field, column]) => [field, column.decode(values[column.header] ?? '')])) };
+        throw new types_js_1.SheetbaseError('schema', 'Open this table online once before reading or editing it.'); return (0, model_js_1.project)(this.record.base, this.record.columns ?? [], this.record.operations, !!this.target.dynamic).rows; }
+    decode(key, values, columns = this.columns()) {
+        return { key, values: Object.fromEntries(Object.entries(this.codecs(columns)).map(([field, column]) => [field, column.decode(values[this.definition.dynamic ? field : column.header] ?? '')])) };
     }
-    all() { return Object.entries(this.raw()).map(([key, values]) => this.decode(key, values)); }
+    columns() { return this.record ? (0, model_js_1.project)({}, this.record.columns ?? [], this.record.operations.filter(operation => operation.schema), !!this.target.dynamic).columns : []; }
+    codecs(columns = this.columns()) {
+        if (!this.definition.dynamic)
+            return this.definition.columns;
+        return Object.fromEntries(columns.map(column => {
+            const factory = this.definition.dynamic.codecs[column.type];
+            if (!Object.prototype.hasOwnProperty.call(this.definition.dynamic.codecs, column.type) || !factory)
+                throw new types_js_1.SheetbaseError('schema', `Unknown column type: ${column.type}`);
+            return [column.id, factory(column.header)];
+        }));
+    }
+    all() { const columns = this.columns(); return Object.entries(this.raw()).map(([key, values]) => this.decode(key, values, columns)); }
     get(key) { const values = this.raw(); return Object.prototype.hasOwnProperty.call(values, key) ? this.decode(key, values[key]) : undefined; }
     pending() { return this.record?.operations.length ?? 0; }
     snapshot() {
         const state = this.client.available(), error = this.transient ?? this.record?.error ?? null;
         const phase = state.closed ? 'closed' : !state.online ? 'offline' : !state.active ? 'auth-required' : this.busy ? 'syncing' : error ? 'error' : !this.record?.initialized ? 'opening' : this.pending() ? 'pending' : 'ready';
-        return { phase, rows: this.record?.initialized ? this.all() : [], pending: this.pending(), syncedAt: this.record?.syncedAt ?? null, error };
+        return { phase, columns: this.columns(), initialized: this.record?.initialized ?? false, rows: this.record?.initialized ? this.all() : [], pending: this.pending(), syncedAt: this.record?.syncedAt ?? null, error };
     }
     subscribe(listener) { this.listeners.add(listener); try {
         listener(this.snapshot());
@@ -332,33 +345,68 @@ class SheetTable {
         this.client.guard();
         const storage = this.client.options.storage, record = await storage.read(this.key) ?? await storage.update(this.key, (current) => current ?? (0, model_js_1.emptyTable)(this.key, this.target));
         this.publish(record);
-        if (!record.initialized || options.refresh)
+        if (!options.cachedOnly && (!record.initialized || options.refresh))
             await this.refresh({ create: options.create });
         this.client.schedule(this);
         return this.snapshot();
     }
-    async set(key, patch) {
+    async transaction(change) {
         this.client.guard();
-        (0, model_js_1.validateKey)(key);
         this.raw();
-        const values = Object.fromEntries(Object.entries(patch).map(([field, value]) => { const column = this.definition.columns[field]; if (!Object.prototype.hasOwnProperty.call(this.definition.columns, field) || !column || value === undefined)
-            throw new types_js_1.SheetbaseError('invalid-value', `Unknown or undefined field: ${field}`); return [column.header, column.encode(value)]; }));
-        if (!Object.keys(values).length)
-            return;
         const guard = this.client.capture();
-        const result = await this.client.options.storage.update(this.key, (record) => {
+        const result = await this.client.options.storage.update(this.key, record => {
             guard();
             if (!record?.initialized)
                 throw new types_js_1.SheetbaseError('schema', 'The table is not initialized.');
             (0, model_js_1.assertRecord)(record, this.target);
-            const operations = (0, model_js_1.compact)([...record.operations, { id: crypto.randomUUID(), key, values }], record.batch?.operationIds);
-            return { ...record, operations, error: null };
+            const added = [], transactionId = crypto.randomUUID();
+            const state = () => (0, model_js_1.project)(record.base, record.columns ?? [], [...record.operations, ...added], !!this.target.dynamic);
+            const structural = (schema) => {
+                if (!this.definition.dynamic)
+                    throw new types_js_1.SheetbaseError('schema', 'Enable dynamic columns before changing the schema.');
+                added.push({ id: crypto.randomUUID(), key: '', values: {}, schema, transaction: transactionId });
+                (0, model_js_1.validateColumns)(state().columns, this.target.keyColumn);
+                this.codecs(state().columns);
+            };
+            const table = this;
+            const transaction = {
+                get columns() { return state().columns; },
+                get(key) {
+                    const current = state(), values = current.rows[key];
+                    if (!Object.prototype.hasOwnProperty.call(current.rows, key))
+                        return undefined;
+                    return { key, values: Object.fromEntries(Object.entries(table.codecs(current.columns)).map(([field, column]) => [field, column.decode(values[table.definition.dynamic ? field : column.header] ?? '')])) };
+                },
+                set(key, patch) {
+                    (0, model_js_1.validateKey)(key);
+                    const codecs = table.codecs(state().columns);
+                    const values = Object.fromEntries(Object.entries(patch).map(([field, value]) => {
+                        const column = codecs[field];
+                        if (!Object.prototype.hasOwnProperty.call(codecs, field) || !column || value === undefined)
+                            throw new types_js_1.SheetbaseError('invalid-value', `Unknown or undefined field: ${field}`);
+                        return [table.definition.dynamic ? field : column.header, column.encode(value)];
+                    }));
+                    if (Object.keys(values).length)
+                        added.push({ id: crypto.randomUUID(), key, values, transaction: transactionId });
+                },
+                addColumn(column) { structural({ type: 'add', column: structuredClone(column) }); },
+                renameColumn(id, header) { structural({ type: 'rename', id, header }); },
+                removeColumn(id) { structural({ type: 'remove', id }); },
+            };
+            const returned = change(transaction);
+            if (returned && typeof returned.then === 'function')
+                throw new types_js_1.SheetbaseError('invalid-value', 'Transactions must be synchronous.');
+            return { ...record, operations: (0, model_js_1.compact)([...record.operations, ...added], record.batch?.operationIds), error: null };
         });
         guard();
         this.publish(result);
         this.client.schedule(this);
     }
-    async delete(key) { await this.set(key, Object.fromEntries(Object.keys(this.definition.columns).map((field) => [field, null]))); }
+    async set(key, patch) { const captured = structuredClone(patch); await this.transaction(transaction => transaction.set(key, captured)); }
+    async delete(key) { await this.transaction(transaction => transaction.set(key, Object.fromEntries(Object.keys(this.codecs(transaction.columns)).map(field => [field, null])))); }
+    async addColumn(column) { await this.transaction(transaction => transaction.addColumn(column)); }
+    async renameColumn(id, header) { await this.transaction(transaction => transaction.renameColumn(id, header)); }
+    async removeColumn(id) { await this.transaction(transaction => transaction.removeColumn(id)); }
     async export() { return this.client.options.storage.read(this.key); }
     async refresh(options = {}) {
         const guard = this.client.capture();
@@ -369,16 +417,24 @@ class SheetTable {
             this.emit();
             let failure;
             try {
-                const base = await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, async () => {
+                const remote = await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, async () => {
                     if (options.create)
                         await this.client.options.remote.initialize(this.target, guard);
-                    const rows = await this.client.options.remote.read(this.target, guard);
+                    const columns = this.target.dynamic ? await this.client.options.remote.readSchema?.(this.target, guard) : undefined;
+                    if (this.target.dynamic && !columns)
+                        throw new types_js_1.SheetbaseError('unsupported', 'The remote does not support dynamic columns.');
+                    if (columns) {
+                        (0, model_js_1.validateColumns)(columns, this.target.keyColumn);
+                        this.codecs(columns);
+                    }
+                    const rows = await this.client.options.remote.read({ ...this.target, columns }, guard);
                     for (const [key, values] of Object.entries(rows))
-                        this.decode(key, values);
-                    return rows;
+                        this.decode(key, values, columns);
+                    return { rows, columns };
                 });
                 guard();
-                const record = await this.client.options.storage.update(this.key, (old) => { guard(); const next = old ?? (0, model_js_1.emptyTable)(this.key, this.target); (0, model_js_1.assertRecord)(next, this.target); return { ...next, base, initialized: true, syncedAt: Date.now(), error: null }; });
+                const record = await this.client.options.storage.update(this.key, (old) => { guard(); const next = old ?? (0, model_js_1.emptyTable)(this.key, this.target); (0, model_js_1.assertRecord)(next, this.target); const projected = (0, model_js_1.project)(remote.rows, remote.columns ?? [], next.operations, !!this.target.dynamic); for (const [key, values] of Object.entries(projected.rows))
+                    this.decode(key, values, projected.columns); return { ...next, base: remote.rows, columns: remote.columns, initialized: true, syncedAt: Date.now(), error: null }; });
                 this.publish(record);
             }
             catch (reason) {
@@ -416,16 +472,20 @@ class SheetTable {
                         if (record.batch)
                             return record;
                         const operations = (0, model_js_1.compact)(record.operations);
-                        return { ...record, operations, batch: { id: crypto.randomUUID(), operationIds: operations.slice(0, 100).map((operation) => operation.id) } };
+                        let end = Math.min(100, operations.length);
+                        while (end < operations.length && operations[end - 1].transaction && operations[end - 1].transaction === operations[end].transaction)
+                            end++;
+                        return { ...record, operations, batch: { id: crypto.randomUUID(), operationIds: operations.slice(0, end).map((operation) => operation.id) } };
                     });
                     const batch = frozen.batch, operations = frozen.operations.filter((operation) => batch.operationIds.includes(operation.id));
-                    await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, () => this.client.options.remote.commit(this.target, operations, batch.id, guard));
+                    const remote = await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, () => this.client.options.remote.commit({ ...this.target, columns: frozen.columns }, operations, batch.id, guard));
                     guard();
                     const acknowledged = await this.client.options.storage.update(this.key, (record) => {
                         guard();
                         if (!record)
                             throw new types_js_1.SheetbaseError('storage', 'The table disappeared.');
-                        return { ...record, base: (0, model_js_1.apply)(record.base, operations), operations: record.operations.filter((operation) => !batch.operationIds.includes(operation.id)), batch: null, syncedAt: Date.now(), error: null };
+                        const next = remote ?? (0, model_js_1.project)(record.base, record.columns ?? [], operations, !!this.target.dynamic);
+                        return { ...record, base: next.rows, columns: next.columns, operations: record.operations.filter((operation) => !batch.operationIds.includes(operation.id)), batch: null, syncedAt: Date.now(), error: null };
                     });
                     this.publish(acknowledged);
                 }
@@ -566,6 +626,31 @@ function ledgerBatches(tab) {
         throw new types_js_1.SheetbaseError('schema', 'The reserved _Sheetbase tab has an incompatible header.');
     return new Map(tab.rows.slice(1).filter((row) => row[0]).map((row) => [row[0], row[1]]));
 }
+function dynamicSchema(table, definitions, target) {
+    validate(table, { ...target, headers: [] });
+    if (definitions?.rows.length && JSON.stringify(definitions.rows[0].slice(0, 3)) !== JSON.stringify(['ID', 'Name', 'Type']))
+        throw new types_js_1.SheetbaseError('schema', 'Column definitions must start with ID, Name, Type.');
+    const known = definitions?.rows.slice(1).filter(row => row.some(Boolean)) ?? [];
+    if (known.some(row => !row[0] || !row[1] || !row[2]) || new Set(known.map(row => row[0])).size !== known.length || new Set(known.map(row => row[1])).size !== known.length)
+        throw new types_js_1.SheetbaseError('schema', 'Column definitions need distinct IDs and names.');
+    const headers = table.rows[0].slice(1);
+    if (headers.some(header => !header.trim()))
+        throw new types_js_1.SheetbaseError('schema', 'Dynamic column headers cannot be empty.');
+    if (known.some(row => !headers.includes(row[1])))
+        throw new types_js_1.SheetbaseError('schema', 'A defined column is missing from the table. Repair the sheet before syncing.');
+    const columns = headers.map(header => { const entry = known.find(row => row[1] === header); return { id: entry?.[0] ?? `column:${header}`, header, type: entry?.[2] ?? target.dynamic.defaultType }; });
+    (0, model_js_1.validateColumns)(columns, target.keyColumn);
+    return columns;
+}
+function rawDynamic(table, columns) {
+    const rows = table.rows.slice(1).flatMap(row => {
+        if (!row[0])
+            return [];
+        const values = Object.fromEntries(columns.map(column => [column.id, row[table.rows[0].indexOf(column.header)] ?? '']));
+        return [[row[0], values]];
+    });
+    return { rows: Object.fromEntries(Object.entries(Object.fromEntries(rows)).filter(([, values]) => Object.values(values).some(Boolean))), columns };
+}
 function createGoogleSheetsRemote(options) {
     const metadata = new Map();
     const fetcher = options.fetch ?? globalThis.fetch;
@@ -624,7 +709,133 @@ function createGoogleSheetsRemote(options) {
         return result.sheets.map(decode);
     }
     async function update(target, requests, guard) { await request(target, ':batchUpdate', guard, { requests }); }
-    return {
+    async function commitDynamic(target, operations, batchId, guard) {
+        const structural = operations.some(operation => operation.schema);
+        const sheets = await meta(target, guard, structural);
+        const names = [target.dynamic.sheet, LEDGER];
+        const ranges = structural ? [quote(target.sheet)] : [`${quote(target.sheet)}!1:1`, `${quote(target.sheet)}!A2:A`];
+        for (const name of names)
+            if (sheets.some(sheet => sheet.title === name))
+                ranges.push(quote(name));
+        const result = await tabs(target, ranges, guard), table = result.find(tab => tab.properties.title === target.sheet);
+        if (!table)
+            throw new types_js_1.SheetbaseError('schema', `Missing sheet ${target.sheet}.`);
+        const ledger = result.find(tab => tab.properties.title === LEDGER), receipts = ledgerBatches(ledger);
+        const receipt = receipts.get(batchId);
+        if (receipt !== undefined && receipt !== target.sheet)
+            throw new types_js_1.SheetbaseError('schema', 'A batch receipt belongs to another table.');
+        if (receipt !== undefined) {
+            const columns = await remote.readSchema(target, guard), rows = await remote.read({ ...target, columns }, guard);
+            return { rows, columns };
+        }
+        let definitions = result.find(tab => tab.properties.title === target.dynamic.sheet);
+        let columns = dynamicSchema(table, definitions, target);
+        const requests = [], newRows = new Map();
+        let nextId = Math.max(-1, ...sheets.map(sheet => sheet.sheetId)) + 1;
+        if (!definitions) {
+            definitions = { properties: { sheetId: nextId++, title: target.dynamic.sheet, gridProperties: { rowCount: 1000, columnCount: 3 } }, rows: [] };
+            requests.push({ addSheet: { properties: definitions.properties } });
+        }
+        const write = (tab, rowIndex, columnIndex, value) => {
+            if (columnIndex < 0)
+                throw new types_js_1.SheetbaseError('schema', 'The target column is missing.');
+            if (columnIndex >= tab.properties.gridProperties.columnCount) {
+                requests.push({ appendDimension: { sheetId: tab.properties.sheetId, dimension: 'COLUMNS', length: columnIndex + 1 - tab.properties.gridProperties.columnCount } });
+                tab.properties.gridProperties.columnCount = columnIndex + 1;
+            }
+            if (rowIndex >= tab.properties.gridProperties.rowCount) {
+                requests.push({ appendDimension: { sheetId: tab.properties.sheetId, dimension: 'ROWS', length: rowIndex + 1 - tab.properties.gridProperties.rowCount } });
+                tab.properties.gridProperties.rowCount = rowIndex + 1;
+            }
+            requests.push({ updateCells: { start: { sheetId: tab.properties.sheetId, rowIndex, columnIndex }, rows: cells([[value]]), fields: 'userEnteredValue' } });
+            tab.rows[rowIndex] ??= [];
+            tab.rows[rowIndex][columnIndex] = value;
+        };
+        if (!definitions.rows.length)
+            ['ID', 'Name', 'Type'].forEach((value, index) => write(definitions, 0, index, value));
+        const addDefinition = (column) => { const row = definitions.rows.length; [column.id, column.header, column.type].forEach((value, index) => write(definitions, row, index, value)); };
+        for (const column of columns)
+            if (!definitions.rows.some(row => row[0] === column.id))
+                addDefinition(column);
+        for (const operation of operations) {
+            if (operation.schema) {
+                const change = operation.schema, next = (0, model_js_1.project)({}, columns, [operation]).columns;
+                (0, model_js_1.validateColumns)(next, target.keyColumn);
+                if (change.type === 'add') {
+                    if (!columns.some(column => column.id === change.column.id)) {
+                        write(table, 0, table.rows[0].length, change.column.header);
+                        addDefinition(change.column);
+                    }
+                }
+                else {
+                    const column = columns.find(column => column.id === change.id);
+                    if (!column && change.type === 'rename')
+                        throw new types_js_1.SheetbaseError('schema', 'Column no longer exists.');
+                    if (column) {
+                        const index = table.rows[0].indexOf(column.header), definitionRow = definitions.rows.findIndex(row => row[0] === column.id);
+                        if (change.type === 'rename') {
+                            write(table, 0, index, change.header);
+                            write(definitions, definitionRow, 1, change.header);
+                        }
+                        else {
+                            requests.push({ deleteDimension: { range: { sheetId: table.properties.sheetId, dimension: 'COLUMNS', startIndex: index, endIndex: index + 1 } } });
+                            for (const row of table.rows)
+                                row.splice(index, 1);
+                            for (const row of newRows.values())
+                                row.splice(index, 1);
+                            table.properties.gridProperties.columnCount--;
+                            requests.push({ deleteDimension: { range: { sheetId: definitions.properties.sheetId, dimension: 'ROWS', startIndex: definitionRow, endIndex: definitionRow + 1 } } });
+                            definitions.rows.splice(definitionRow, 1);
+                            definitions.properties.gridProperties.rowCount--;
+                        }
+                    }
+                }
+                columns = next;
+                continue;
+            }
+            for (const [id, value] of Object.entries(operation.values)) {
+                const column = columns.find(column => column.id === id);
+                if (!column)
+                    throw new types_js_1.SheetbaseError('schema', 'The edited column no longer exists. Pending changes are retained.');
+                // Reject an ID whose codec changed remotely before sending an old encoded value.
+                const original = target.columns?.find(column => column.id === id);
+                if (original && original.type !== column.type)
+                    throw new types_js_1.SheetbaseError('schema', 'The column type changed remotely.');
+                const index = table.rows[0].indexOf(column.header), matching = table.rows.flatMap((row, offset) => offset > 0 && row[0] === operation.key ? [offset] : []);
+                if (matching.length) {
+                    for (const rowIndex of matching)
+                        write(table, rowIndex, index, value);
+                }
+                else {
+                    const row = newRows.get(operation.key) ?? [operation.key];
+                    while (row.length <= index)
+                        row.push('');
+                    row[index] = value;
+                    newRows.set(operation.key, row);
+                }
+            }
+        }
+        const appended = [...newRows.values()].filter(row => row.slice(1).some(Boolean));
+        if (appended.length)
+            requests.push({ appendCells: { sheetId: table.properties.sheetId, rows: cells(appended), fields: 'userEnteredValue' } });
+        const ledgerId = ledger?.properties.sheetId ?? nextId++;
+        if (!ledger)
+            requests.push({ addSheet: { properties: { sheetId: ledgerId, title: LEDGER, hidden: true, gridProperties: { rowCount: 1000, columnCount: 3 } } } });
+        if (!ledger?.rows.length)
+            requests.push({ updateCells: { start: { sheetId: ledgerId, rowIndex: 0, columnIndex: 0 }, rows: cells([['Batch', 'Table', 'Saved at']]), fields: 'userEnteredValue' } });
+        requests.push({ appendCells: { sheetId: ledgerId, rows: cells([[batchId, target.sheet, new Date().toISOString()]]), fields: 'userEnteredValue' } });
+        try {
+            await update(target, requests, guard);
+        }
+        finally {
+            metadata.delete(target.spreadsheetId);
+        }
+        if (structural) {
+            table.rows.push(...appended);
+            return rawDynamic(table, columns);
+        }
+    }
+    const remote = {
         async initialize(target, guard) {
             const sheets = await meta(target, guard, true), existing = sheets.find((sheet) => sheet.title === target.sheet);
             const header = [target.keyColumn, ...target.headers], requests = [];
@@ -651,21 +862,57 @@ function createGoogleSheetsRemote(options) {
                 metadata.delete(target.spreadsheetId);
             }
         },
+        async readSchema(target, guard) {
+            if (!target.dynamic)
+                return [];
+            const sheets = await meta(target, guard);
+            const result = await tabs(target, [`${quote(target.sheet)}!1:1`, ...(sheets.some(sheet => sheet.title === target.dynamic.sheet) ? [quote(target.dynamic.sheet)] : [])], guard);
+            const table = result.find(tab => tab.properties.title === target.sheet);
+            if (!table)
+                throw new types_js_1.SheetbaseError('schema', `Missing sheet ${target.sheet}.`);
+            const definitions = result.find(tab => tab.properties.title === target.dynamic.sheet), columns = dynamicSchema(table, definitions, target);
+            const requests = [];
+            const id = definitions?.properties.sheetId ?? Math.max(-1, ...sheets.map(sheet => sheet.sheetId)) + 1;
+            if (!definitions)
+                requests.push({ addSheet: { properties: { sheetId: id, title: target.dynamic.sheet, gridProperties: { rowCount: Math.max(1000, columns.length + 1), columnCount: 3 } } } });
+            if (!definitions?.rows.length)
+                requests.push({ updateCells: { start: { sheetId: id, rowIndex: 0, columnIndex: 0 }, rows: cells([['ID', 'Name', 'Type']]), fields: 'userEnteredValue' } });
+            const missing = columns.filter(column => !definitions?.rows.some(row => row[0] === column.id));
+            if (missing.length)
+                requests.push({ appendCells: { sheetId: id, rows: cells(missing.map(column => [column.id, column.header, column.type])), fields: 'userEnteredValue' } });
+            if (requests.length) {
+                try {
+                    await update(target, requests, guard);
+                }
+                finally {
+                    metadata.delete(target.spreadsheetId);
+                }
+            }
+            return columns;
+        },
         async read(target, guard) {
             const sheets = await meta(target, guard);
             if (!sheets.some((sheet) => sheet.title === target.sheet))
                 throw new types_js_1.SheetbaseError('schema', `Missing sheet ${target.sheet}. Use open({ create: true }) to initialize it.`);
-            const [tab] = await tabs(target, [quote(target.sheet)], guard), positions = validate(tab, target);
+            const [tab] = await tabs(target, [quote(target.sheet)], guard);
+            if (target.dynamic) {
+                const columns = target.columns ?? await remote.readSchema(target, guard);
+                validate(tab, { ...target, headers: columns.map(column => column.header) });
+                return rawDynamic(tab, columns).rows;
+            }
+            const positions = validate(tab, target);
             const rows = tab.rows.slice(1).flatMap((row) => {
                 if (!row[0])
                     return [];
                 const values = Object.fromEntries([...positions].map(([header, column]) => [header, row[column] ?? '']));
-                return Object.values(values).some(Boolean) ? [[row[0], values]] : [];
+                return [[row[0], values]];
             });
-            return Object.fromEntries(rows);
+            return Object.fromEntries(Object.entries(Object.fromEntries(rows)).filter(([, values]) => Object.values(values).some(Boolean)));
         },
         async commit(target, operations, batchId, guard) {
             try {
+                if (target.dynamic)
+                    return await commitDynamic(target, operations, batchId, guard);
                 const sheets = await meta(target, guard);
                 if (!sheets.some((sheet) => sheet.title === target.sheet))
                     throw new types_js_1.SheetbaseError('schema', `Missing sheet ${target.sheet}.`);
@@ -688,10 +935,11 @@ function createGoogleSheetsRemote(options) {
                 }
                 const newRows = [];
                 for (const [key, values] of combined) {
-                    const index = table.rows.findIndex((row, rowIndex) => rowIndex > 0 && row[0] === key);
-                    if (index > 0)
-                        for (const [header, value] of Object.entries(values))
-                            requests.push({ updateCells: { start: { sheetId: table.properties.sheetId, rowIndex: index, columnIndex: positions.get(header) }, rows: cells([[value]]), fields: 'userEnteredValue' } });
+                    const matching = table.rows.flatMap((row, rowIndex) => rowIndex > 0 && row[0] === key ? [rowIndex] : []);
+                    if (matching.length)
+                        for (const index of matching)
+                            for (const [header, value] of Object.entries(values))
+                                requests.push({ updateCells: { start: { sheetId: table.properties.sheetId, rowIndex: index, columnIndex: positions.get(header) }, rows: cells([[value]]), fields: 'userEnteredValue' } });
                     else if (Object.values(values).some(Boolean)) {
                         const row = Array.from({ length: Math.max(...Object.keys(values).map((header) => positions.get(header))) + 1 }, () => '');
                         row[0] = key;
@@ -718,10 +966,12 @@ function createGoogleSheetsRemote(options) {
             }
         },
     };
+    return remote;
 }
 /** A deterministic backend for examples/tests. It never calls Google. */
-function createMemoryRemote(initial = {}, savedReceipts = {}) {
+function createMemoryRemote(initial = {}, savedReceipts = {}, savedSchemas = {}) {
     const tables = new Map(Object.entries(structuredClone(initial))), receipts = new Map(Object.entries(savedReceipts).map(([key, values]) => [key, new Set(values)]));
+    const schemas = new Map(Object.entries(structuredClone(savedSchemas)));
     let online = true, loseNext = false, reads = 0, writes = 0;
     const id = (target) => JSON.stringify([target.accountId, target.spreadsheetId, target.sheet]);
     const check = (guard) => { guard(); if (!online)
@@ -729,6 +979,7 @@ function createMemoryRemote(initial = {}, savedReceipts = {}) {
     return {
         async initialize(target, guard) { check(guard); if (!tables.has(id(target)))
             tables.set(id(target), {}); },
+        async readSchema(target, guard) { check(guard); return structuredClone(schemas.get(id(target)) ?? target.columns ?? []); },
         async read(target, guard) { check(guard); reads++; if (!tables.has(id(target)))
             throw new types_js_1.SheetbaseError('schema', 'The simulated table does not exist.'); return structuredClone(tables.get(id(target))); },
         async commit(target, operations, batchId, guard) {
@@ -738,7 +989,9 @@ function createMemoryRemote(initial = {}, savedReceipts = {}) {
                 return;
             if (!tables.has(key))
                 throw new types_js_1.SheetbaseError('schema', 'The simulated table does not exist.');
-            tables.set(key, (0, model_js_1.apply)(tables.get(key), operations));
+            const next = (0, model_js_1.project)(tables.get(key), schemas.get(key) ?? target.columns ?? [], operations, !!target.dynamic);
+            tables.set(key, next.rows);
+            schemas.set(key, next.columns);
             saved.add(batchId);
             receipts.set(key, saved);
             writes++;
@@ -751,7 +1004,7 @@ function createMemoryRemote(initial = {}, savedReceipts = {}) {
         loseNextResponse() { loseNext = true; },
         inspect(target) { return structuredClone(tables.get(id(target)) ?? {}); },
         stats() { return { reads, writes }; },
-        checkpoint() { return { tables: structuredClone(Object.fromEntries(tables)), receipts: Object.fromEntries([...receipts].map(([key, ids]) => [key, [...ids]])) }; },
+        checkpoint() { return { tables: structuredClone(Object.fromEntries(tables)), schemas: structuredClone(Object.fromEntries(schemas)), receipts: Object.fromEntries([...receipts].map(([key, ids]) => [key, [...ids]])) }; },
     };
 }
 
@@ -783,8 +1036,10 @@ exports.identity = void 0;
 exports.emptyTable = emptyTable;
 exports.assertRecord = assertRecord;
 exports.apply = apply;
+exports.project = project;
 exports.compact = compact;
 exports.validateKey = validateKey;
+exports.validateColumns = validateColumns;
 const types_js_1 = require("./types.js");
 const identity = (namespace, target) => JSON.stringify([namespace, target.accountId, target.spreadsheetId, target.sheet]);
 exports.identity = identity;
@@ -796,20 +1051,57 @@ function assertRecord(record, target) {
         throw new types_js_1.SheetbaseError('schema', 'The cached schema differs. Reopen with the original schema and sync/export pending changes before changing it.');
 }
 function apply(base, operations) {
+    return project(base, [], operations).rows;
+}
+function project(base, columns, operations, dynamic = columns.length > 0) {
     const rows = structuredClone(base);
+    let schema = structuredClone(columns);
     for (const operation of operations) {
+        if (operation.schema) {
+            const change = operation.schema;
+            if (change.type === 'add') {
+                const existing = schema.find(column => column.id === change.column.id);
+                if (existing && JSON.stringify(existing) !== JSON.stringify(change.column))
+                    throw new types_js_1.SheetbaseError('schema', 'Column ID already exists.');
+                if (!existing)
+                    schema.push(structuredClone(change.column));
+            }
+            else if (change.type === 'rename') {
+                const column = schema.find(column => column.id === change.id);
+                if (!column)
+                    throw new types_js_1.SheetbaseError('schema', 'Column no longer exists. Pending changes are retained.');
+                column.header = change.header;
+            }
+            else {
+                schema = schema.filter(column => column.id !== change.id);
+                for (const [key, row] of Object.entries(rows)) {
+                    delete row[change.id];
+                    if (!Object.values(row).some(Boolean))
+                        delete rows[key];
+                }
+            }
+            validateColumns(schema);
+            continue;
+        }
+        if (dynamic && Object.keys(operation.values).some(id => !schema.some(column => column.id === id)))
+            throw new types_js_1.SheetbaseError('schema', 'An edited column no longer exists. Pending changes are retained.');
         const row = { ...rows[operation.key], ...operation.values };
         if (Object.values(row).some((value) => value !== ''))
             Object.defineProperty(rows, operation.key, { value: row, enumerable: true, writable: true, configurable: true });
         else
             delete rows[operation.key];
     }
-    return rows;
+    return { rows, columns: schema };
 }
 function compact(operations, protectedIds = []) {
+    const counts = new Map();
+    for (const operation of operations)
+        if (operation.transaction)
+            counts.set(operation.transaction, (counts.get(operation.transaction) ?? 0) + 1);
+    const structuralTransactions = new Set(operations.filter(operation => operation.transaction && (operation.schema || counts.get(operation.transaction) > 1)).map(operation => operation.transaction));
     const protectedSet = new Set(protectedIds), previous = new Map(), result = [];
     for (const operation of operations) {
-        if (protectedSet.has(operation.id)) {
+        if (operation.schema || (operation.transaction && structuralTransactions.has(operation.transaction)) || protectedSet.has(operation.id)) {
             previous.clear();
             result.push(operation);
             continue;
@@ -825,6 +1117,13 @@ function compact(operations, protectedIds = []) {
 function validateKey(key) {
     if (typeof key !== 'string' || !key.trim() || key.length > 300)
         throw new types_js_1.SheetbaseError('invalid-value', 'Use a non-empty string key of at most 300 characters.');
+}
+function validateColumns(columns, keyColumn) {
+    const names = columns.map(column => column.header.trim().toLowerCase());
+    if (columns.some(column => !column.id.trim() || !column.type.trim() || !column.header.trim() || column.header.length > 200)
+        || new Set(columns.map(column => column.id)).size !== columns.length || new Set(names).size !== names.length
+        || (keyColumn && names.includes(keyColumn.trim().toLowerCase())))
+        throw new types_js_1.SheetbaseError('schema', 'Column IDs and names must be distinct and non-empty.');
 }
 
 },
@@ -851,6 +1150,7 @@ function createMemoryStorage() {
     let tail = Promise.resolve();
     return {
         kind: 'memory',
+        async list() { return structuredClone([...records.values()]); },
         async read(key) { return structuredClone(records.get(key) ?? null); },
         update(key, change) {
             const work = tail.catch(() => { }).then(() => { const old = records.get(key); const record = structuredClone({ ...change(structuredClone(old ?? null)), revision: (old?.revision ?? 0) + 1 }); records.set(key, record); for (const listener of listeners) {
@@ -899,9 +1199,10 @@ function createIndexedDBStorage(name = 'sheetbase') {
                 reject(new types_js_1.SheetbaseError('storage', 'IndexedDB is unavailable.'));
                 return;
             }
-            const request = indexedDB.open(name, 1);
+            const request = indexedDB.open(name, 2);
             request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains('tables'))
-                request.result.createObjectStore('tables', { keyPath: 'key' }); };
+                request.result.createObjectStore('tables', { keyPath: 'key' }); if (!request.result.objectStoreNames.contains('leases'))
+                request.result.createObjectStore('leases', { keyPath: 'key' }); };
             request.onerror = () => reject(new types_js_1.SheetbaseError('storage', 'Cannot open local storage.'));
             request.onblocked = () => reject(new types_js_1.SheetbaseError('storage', 'Close older tabs before upgrading storage.'));
             request.onsuccess = () => { const db = request.result; if (closed) {
@@ -912,8 +1213,34 @@ function createIndexedDBStorage(name = 'sheetbase') {
         }).catch((error) => { opening = null; throw error; });
         return opening;
     };
+    const lease = async (key, owner, action) => {
+        const db = await database();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction('leases', 'readwrite'), store = transaction.objectStore('leases');
+            let acquired = false;
+            const request = store.get(key);
+            request.onsuccess = () => {
+                const current = request.result;
+                if (action === 'release') {
+                    if (current?.owner === owner)
+                        store.delete(key);
+                    return;
+                }
+                if (action === 'acquire' ? !current || current.expires <= Date.now() || current.owner === owner : current?.owner === owner && current.expires > Date.now()) {
+                    acquired = true;
+                    store.put({ key, owner, expires: Date.now() + 90000 });
+                }
+            };
+            transaction.oncomplete = () => resolve(acquired);
+            transaction.onabort = transaction.onerror = () => reject(new types_js_1.SheetbaseError('storage', 'Cannot coordinate local synchronization.'));
+        });
+    };
     return {
         kind: 'indexeddb',
+        async list() {
+            const db = await database();
+            return new Promise((resolve, reject) => { const request = db.transaction('tables').objectStore('tables').getAll(); request.onsuccess = () => resolve(request.result); request.onerror = () => reject((0, types_js_1.asError)(request.error, 'storage')); });
+        },
         async read(key) {
             const db = await database();
             return new Promise((resolve, reject) => { const request = db.transaction('tables').objectStore('tables').get(key); request.onsuccess = () => resolve(request.result ?? null); request.onerror = () => reject((0, types_js_1.asError)(request.error, 'storage')); });
@@ -938,9 +1265,24 @@ function createIndexedDBStorage(name = 'sheetbase') {
         },
         subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
         async withLock(key, task) {
-            if (typeof navigator === 'undefined' || !navigator.locks)
-                throw new types_js_1.SheetbaseError('unsupported', 'Cross-tab synchronization requires Web Locks. Local edits remain saved.');
-            return navigator.locks.request(`${name}:lock:${key}`, task);
+            if (typeof navigator !== 'undefined' && navigator.locks)
+                return navigator.locks.request(`${name}:lock:${key}`, task);
+            const owner = crypto.randomUUID();
+            while (!await lease(key, owner, 'acquire'))
+                await new Promise(resolve => setTimeout(resolve, 50));
+            let valid = true;
+            const renewal = setInterval(() => { void lease(key, owner, 'renew').then(renewed => { if (!renewed)
+                valid = false; }).catch(() => { valid = false; }); }, 20000);
+            try {
+                const result = await task();
+                if (!valid)
+                    throw new types_js_1.SheetbaseError('storage', 'The synchronization lease was lost. Retry to recover the saved batch.');
+                return result;
+            }
+            finally {
+                clearInterval(renewal);
+                await lease(key, owner, 'release').catch(() => { });
+            }
         },
         close() { closed = true; void opening?.then((db) => db.close()).catch(() => { }); channel?.close(); listeners.clear(); },
     };

@@ -36,7 +36,7 @@ Výsledný `Row` je `{ key: string, values: { pages: number | null } }`. TypeScr
 
 ## Metódy tabuľky
 
-- `open({ create?: boolean, refresh?: boolean } = {}): Promise<Snapshot>` — načíta lokálny record; pri prvom použití načíta vzdialené dáta. `create` povoľuje inicializáciu chýbajúceho/úplne prázdneho listu v existujúcom súbore. Neprepisuje nekompatibilné dáta.
+- `open({ create?: boolean, refresh?: boolean, cachedOnly?: boolean } = {}): Promise<Snapshot>` — načíta lokálny record; pri prvom použití načíta vzdialené dáta. `create` povoľuje inicializáciu chýbajúceho/úplne prázdneho listu v existujúcom súbore. Neprepisuje nekompatibilné dáta.
 - `set(key, patch): Promise<void>` — čiastočne nastaví absolútne hodnoty. Promise sa splní až po lokálnom commite. Nezadané polia nemení. `undefined` je chyba; `null` vymaže bunku. Nevykonáva serverový increment ani compare-and-swap.
 - `delete(key): Promise<void>` — lokálne vymaže registrované hodnoty a zaradí vyprázdnenie buniek do fronty. Fyzický riadok a jeho kľúč zostávajú zachované. Neregistrované stĺpce nemení.
 - `get(key): Row | undefined` — synchronizovaný pohľad na lokálny stav po `open()`, vrátane čakajúcich zmien. Bez siete.
@@ -54,6 +54,8 @@ Výsledný `Row` je `{ key: string, values: { pages: number | null } }`. TypeScr
   phase: 'opening' | 'ready' | 'pending' | 'syncing' |
          'offline' | 'auth-required' | 'error' | 'closed',
   rows: Row[],
+  columns: DynamicColumn[],
+  initialized: boolean,
   pending: number, // počet operácií po spájaní, nie počet klikov
   syncedAt: number | null, // lokálny timestamp posledného čítania/acku
   error: { code: string, message: string } | null
@@ -76,13 +78,13 @@ Vlastný kodek musí kontrolovať vstupy a odmietnuť neplatný formát. Zmena I
 
 ## Adaptéry
 
-`createIndexedDBStorage(name = 'sheetbase')` uchová dáta v store `tables`, posiela oznámenia cez BroadcastChannel (ak je dostupný), koordinuje synchronizáciu cez Web Locks. `close()` uzavrie handle a kanál. Storage môže byť zdieľaný viacerými klientmi; `dispose()` ho automaticky nezatvára.
+`createIndexedDBStorage(name = 'sheetbase')` uchová dáta v store `tables`, posiela oznámenia cez BroadcastChannel (ak je dostupný), koordinuje synchronizáciu cez Web Locks alebo obnovované IndexedDB leases. `list()` vráti všetky uložené tabuľky. `close()` uzavrie handle a kanál. Storage môže byť zdieľaný viacerými klientmi; `dispose()` ho automaticky nezatvára.
 
 `createMemoryStorage()` je dočasné úložisko pre testy a príklady. Pre perzistenciu v prehliadači použi IndexedDB.
 
 `createGoogleSheetsRemote({ getCredentials, fetch?, timeoutMs? })` vyžaduje pasívny callback vracajúci `{ accountId, accessToken }`. `accountId` sa kontroluje pred a po HTTP requeste, rovnako aj token. Callback nemá token získavať interaktívne. Timeout je štandardne 20 s. Metadata sú cacheované 60 s a po chybách zápisu sa invalidujú.
 
-`createMemoryRemote(initialTables = {}, savedReceipts = {})` je simulácia, ktorá nevolá Google. Kľúč úvodnej tabuľky je `JSON.stringify([accountId, spreadsheetId, sheet])`. Metódy `setOnline()`, `loseNextResponse()`, `inspect(target)`, `stats()` a `checkpoint()` sú pomocníci pre testy a dokumentačnú ukážku. `checkpoint()` vracia `{ tables, receipts }`, ktoré možno odovzdať ďalšej simulácii. Do produkčnej aplikácie tento simulovaný adaptér netreba.
+`createMemoryRemote(initialTables = {}, savedReceipts = {})` je simulácia, ktorá nevolá Google. Kľúč úvodnej tabuľky je `JSON.stringify([accountId, spreadsheetId, sheet])`. Metódy `setOnline()`, `loseNextResponse()`, `inspect(target)`, `stats()` a `checkpoint()` sú pomocníci pre testy a dokumentačnú ukážku. `checkpoint()` vracia `{ tables, receipts, schemas }`, ktoré možno odovzdať ďalšej simulácii. Do produkčnej aplikácie tento simulovaný adaptér netreba.
 
 Rozhrania `Storage`, `Remote`, `Target`, `StoredTable` a `Operation` sú exportované pre vlastné adaptéry. Ich kontrakt popisuje [architektúra](ARCHITECTURE.md).
 
@@ -94,4 +96,34 @@ Rozhrania `Storage`, `Remote`, `Target`, `StoredTable` a `Operation` sú exporto
 - `auth-required`: aplikácia prihlási správny účet, potom zavolá `resume()`.
 - `schema`: oprav hlavičku/duplicitný kľúč alebo sa vráť k pôvodnej schéme; fronta sa automaticky nevymazáva.
 - `storage`: nezobrazuj úspešné lokálne uloženie, keď promise zápisu zlyhá.
-- `unsupported`: synchronizácia v IndexedDB vyžaduje Web Locks. Lokálne zápisy sú zachované.
+- `unsupported`: adaptér nepodporuje načítanie dynamickej schémy.
+
+## Dynamic table API / Dynamické tabuľky
+
+```ts
+const journal = db.table({
+  spreadsheetId: 'existing-file-id', sheet: 'Journal', keyColumn: 'Date',
+  columns: {},
+  dynamic: {
+    sheet: 'JournalColumns', defaultType: 'text',
+    codecs: { text: column.text, number: column.number }
+  }
+});
+await journal.open({ create: true });
+await journal.transaction(tx => {
+  tx.addColumn({ id: 'pages', header: 'Pages', type: 'number' });
+  tx.set('2026-10-29', { pages: 24 });
+});
+await journal.renameColumn('pages', 'Read pages');
+await journal.removeColumn('pages');
+```
+
+- `columns(): DynamicColumn[]` returns the projected `{ id, header, type }` schema.
+- `addColumn(column)`, `renameColumn(id, header)`, `removeColumn(id)` enqueue durable schema changes.
+- `transaction(tx => { ... })` applies synchronous `tx.get`, `tx.set`, `tx.addColumn`, `tx.renameColumn`, `tx.removeColumn` to the latest record in one storage transaction. Validation failure rolls back every change. `tx.columns` reflects preceding changes in the callback.
+- `open({ cachedOnly: true })` restores the cache without opening a network connection.
+
+Dynamic Google tables own a separate metadata tab named by `dynamic.sheet`, with `ID`, `Name`, `Type` headers. All data headers are managed; unrelated tabs are preserved. `dynamic.defaultType` assigns a codec type to existing columns without metadata. Register stable, versioned codec types in `dynamic.codecs`. The remote stores schema operations and receipts in the same atomic Sheets batch, and keeps structural transactions together across batch boundaries. A schema refresh that conflicts with pending values fails before replacing the old local base.
+
+
+Custom dynamic remotes implement `readSchema(target, guard)` and return raw values by column ID. `commit()` receives acknowledged `target.columns` and operations with optional `schema` and `transaction`. It may return `{ rows, columns }` after structural writes or receipt recovery; otherwise the client applies acknowledged operations locally. Storage adapters now implement `list()`.

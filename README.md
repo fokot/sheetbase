@@ -6,15 +6,15 @@
 
 A local-first TypeScript library for personal apps that use Google Sheets as remote storage. Writes commit to local storage first; pending changes sync in batches. No application server, React dependency, or runtime packages.
 
-**Version 0.1 is a functional API prototype. Fero Tracker does not use it yet.** The Google adapter is covered by simulated HTTP contract tests, not live Google integration tests. The documentation demo uses disposable browser-local data and never signs in to Google. The package remains `private: true` to prevent accidental npm publication.
+**Version 0.2 adds durable dynamic columns and local transactions for tracker integrations.** The Google adapter is covered by simulated HTTP contract tests, not live Google integration tests. The documentation demo uses disposable browser-local data and never signs in to Google. The package remains `private: true` to prevent accidental npm publication.
 
 ## Install from GitHub
 
 ```sh
-npm install github:fokot/sheetbase#v0.1.0
+npm install github:fokot/sheetbase#main
 ```
 
-Import from `@fokot/sheetbase`. The version tag includes compiled JavaScript and TypeScript declarations in `dist/`. Installation does not run a library or documentation build. The package is not published to the npm registry. An installable `.tgz` is also attached to each GitHub Release.
+Import from `@fokot/sheetbase`. The repository includes compiled JavaScript and TypeScript declarations in `dist/`. Installation does not run a library or documentation build. The package is not published to the npm registry. An installable `.tgz` is also attached to each GitHub Release.
 
 ## Quick start
 
@@ -77,6 +77,31 @@ const unsubscribe = journal.subscribe(({ rows, phase, pending }) => {
 
 Values use `userEnteredValue.stringValue`; text beginning with `=` is stored as text, not interpreted as a formula.
 
+## Dynamic columns and transactions
+
+```ts
+const journal = db.table({
+  spreadsheetId: 'existing-file-id', sheet: 'Journal', keyColumn: 'Date',
+  columns: {},
+  dynamic: {
+    sheet: 'JournalColumns', defaultType: 'text',
+    codecs: { text: column.text, number: column.number }
+  }
+});
+await journal.open({ create: true });
+await journal.transaction(tx => {
+  tx.addColumn({ id: 'pages', header: 'Pages', type: 'number' });
+  tx.set('2026-10-29', { pages: 24 });
+});
+await journal.renameColumn('pages', 'Read pages');
+await journal.removeColumn('pages');
+```
+Dynamic tables store stable column IDs, names and codec types in a separate tab with the headers `ID`, `Name`, `Type`. This metadata tab is owned by the dynamic table; all nonempty data headers are registered. Renames keep the ID and all history; removals delete the physical column and its metadata. Column changes and associated values are saved in one local transaction and one remote batch, including across batch-size boundaries. They survive reloads and lost responses. `tx.get()` reads the latest durable projection inside the local transaction, so concurrent toggles do not use stale UI state. Callbacks must be synchronous.
+
+`columns()` and `snapshot().columns` expose the current schema. `open({ cachedOnly: true })` restores data without requiring Google. `storage.list()` enumerates cached queues for backups and reconnecting files.
+
+Record keys must be unique. Duplicate keys stop synchronization until the sheet is corrected.
+
 ## Offline and synchronization
 
 `createIndexedDBStorage()` persists the base data, operation queue, and frozen batch identity. Records are isolated by namespace, account, spreadsheet, and tab. Recreate the same client and call `open()` with the same schema to recover pending changes. Register the tables you want to sync; the client does not discover or send old unregistered schemas.
@@ -89,13 +114,13 @@ After initial loading, `open()` uses the cache. `get()` and `all()` never read G
 
 The client reacts to browser online and focus events, with bounded retries. Authentication errors require your app to reauthorize and call `db.resume()`. Schema mismatches and duplicate keys stop writes while preserving the queue. All these flows can be tested without Google using `createMemoryRemote()`.
 
-## Limits of version 0.1
+## Limits of version 0.2
 
-- Fixed registered schemas; automatic migrations, renaming, and removing columns are not implemented.
-- A different schema fingerprint rejects existing local data. Sync or export pending changes using the old schema first; a migration protocol remains future work.
+- Fixed schemas still reject incompatible fingerprints. Opt into dynamic tables for durable column additions, renames, and removals.
+- A different schema fingerprint rejects existing local data. Use the registered schema to sync or export pending changes before replacing it.
 - Google file permissions determine access. The SDK adds no row-level security.
 - Across independent devices, the last successful cell write wins. Sorting between the index read and write can cause a conflict; this is not a distributed database.
-- IndexedDB synchronization requires Web Locks. Without them, local edits are retained but synchronization fails with `unsupported`. Memory adapters coordinate within one JavaScript instance.
+- IndexedDB synchronization uses Web Locks, with renewable IndexedDB leases as a fallback. Memory adapters coordinate within one JavaScript instance.
 - Sync runs while the app is open. Service workers, offline page caching, and uploads after closing the browser are outside the SDK.
 - A browser can reject or evict storage. `table.export()` includes pending operations for an app-owned backup flow.
 - Never put service-account private keys in the browser. The credentials provider must be passive and must not open a login popup for each request.
@@ -124,7 +149,7 @@ The checked-in `dist/` also lets you run the example or library tests without in
 
 ```sh
 node examples/basic.mjs
-node --test tests/client.test.mjs tests/google.test.mjs
+node --test tests/client.test.mjs tests/google.test.mjs tests/dynamic.test.mjs
 ```
 
 `preview.html` is a standalone Slovak preview with inlined assets. IndexedDB on `file://` is browser-dependent; use the HTTP preview for reliable testing.
@@ -143,9 +168,9 @@ npm test
 npm run build:docs
 npm run test:docs
 git add package.json package-lock.json dist
-git commit -m "Release 0.1.1"
-git tag v0.1.1
-git push origin main v0.1.1
+git commit -m "Release 0.2.1"
+git tag v0.2.1
+git push origin main v0.2.1
 ```
 
 The repository currently has no open-source license grant (`UNLICENSED`). Public visibility alone does not grant redistribution rights.

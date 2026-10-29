@@ -1,4 +1,4 @@
-import { apply, assertRecord, compact, emptyTable, identity, validateKey } from './model.js';
+import { assertRecord, compact, emptyTable, identity, validateKey, project, validateColumns } from './model.js';
 import { asError, SheetbaseError } from './types.js';
 export class SheetbaseClient {
     accountId;
@@ -32,9 +32,11 @@ export class SheetbaseClient {
     table(definition) {
         this.guard();
         const entries = Object.entries(definition.columns), names = [definition.keyColumn, ...entries.map(([, column]) => column.header)];
-        if (!definition.spreadsheetId.trim() || !definition.sheet.trim() || !entries.length || names.some((name) => !name.trim()) || new Set(names.map((name) => name.toLowerCase())).size !== names.length)
+        if (!definition.spreadsheetId.trim() || !definition.sheet.trim() || (!entries.length && !definition.dynamic) || names.some((name) => !name.trim()) || new Set(names.map((name) => name.toLowerCase())).size !== names.length)
             throw new SheetbaseError('schema', 'Provide a sheet, spreadsheet ID and distinct, non-empty column headers.');
-        const target = { accountId: this.accountId, spreadsheetId: definition.spreadsheetId, sheet: definition.sheet, keyColumn: definition.keyColumn, headers: entries.map(([, column]) => column.header), fingerprint: JSON.stringify([definition.keyColumn, ...entries.map(([field, column]) => [field, column.header, column.codec])]) };
+        if (definition.dynamic && (!definition.dynamic.sheet.trim() || definition.dynamic.sheet === definition.sheet || definition.dynamic.sheet === '_Sheetbase' || !Object.prototype.hasOwnProperty.call(definition.dynamic.codecs, definition.dynamic.defaultType)))
+            throw new SheetbaseError('schema', 'Dynamic tables need a separate metadata tab and a registered default codec.');
+        const target = { accountId: this.accountId, spreadsheetId: definition.spreadsheetId, sheet: definition.sheet, keyColumn: definition.keyColumn, headers: entries.map(([, column]) => column.header), fingerprint: JSON.stringify(definition.dynamic ? [definition.keyColumn, 'dynamic:v1', definition.dynamic.sheet, definition.dynamic.defaultType] : [definition.keyColumn, ...entries.map(([field, column]) => [field, column.header, column.codec])]), ...(definition.dynamic ? { dynamic: { sheet: definition.dynamic.sheet, defaultType: definition.dynamic.defaultType } } : {}) };
         const key = identity(this.options.namespace ?? 'sheetbase', target), existing = this.tables.get(key);
         if (existing) {
             if (existing.target.fingerprint !== target.fingerprint)
@@ -81,7 +83,7 @@ export class SheetbaseClient {
     wake() { for (const table of this.tables.values()) {
         this.attempts.delete(table.key);
         table.emit();
-        this.schedule(table);
+        this.schedule(table, !!table.snapshot().error);
     } }
     setOnline(online) { this.guard(); this.online = online; if (!online) {
         for (const key of this.timers.keys())
@@ -122,17 +124,28 @@ export class SheetTable {
     async reload() { const record = await this.client.options.storage.read(this.key); if (record)
         this.publish(record); }
     raw() { if (!this.record?.initialized)
-        throw new SheetbaseError('schema', 'Open this table online once before reading or editing it.'); return apply(this.record.base, this.record.operations); }
-    decode(key, values) {
-        return { key, values: Object.fromEntries(Object.entries(this.definition.columns).map(([field, column]) => [field, column.decode(values[column.header] ?? '')])) };
+        throw new SheetbaseError('schema', 'Open this table online once before reading or editing it.'); return project(this.record.base, this.record.columns ?? [], this.record.operations, !!this.target.dynamic).rows; }
+    decode(key, values, columns = this.columns()) {
+        return { key, values: Object.fromEntries(Object.entries(this.codecs(columns)).map(([field, column]) => [field, column.decode(values[this.definition.dynamic ? field : column.header] ?? '')])) };
     }
-    all() { return Object.entries(this.raw()).map(([key, values]) => this.decode(key, values)); }
+    columns() { return this.record ? project({}, this.record.columns ?? [], this.record.operations.filter(operation => operation.schema), !!this.target.dynamic).columns : []; }
+    codecs(columns = this.columns()) {
+        if (!this.definition.dynamic)
+            return this.definition.columns;
+        return Object.fromEntries(columns.map(column => {
+            const factory = this.definition.dynamic.codecs[column.type];
+            if (!Object.prototype.hasOwnProperty.call(this.definition.dynamic.codecs, column.type) || !factory)
+                throw new SheetbaseError('schema', `Unknown column type: ${column.type}`);
+            return [column.id, factory(column.header)];
+        }));
+    }
+    all() { const columns = this.columns(); return Object.entries(this.raw()).map(([key, values]) => this.decode(key, values, columns)); }
     get(key) { const values = this.raw(); return Object.prototype.hasOwnProperty.call(values, key) ? this.decode(key, values[key]) : undefined; }
     pending() { return this.record?.operations.length ?? 0; }
     snapshot() {
         const state = this.client.available(), error = this.transient ?? this.record?.error ?? null;
         const phase = state.closed ? 'closed' : !state.online ? 'offline' : !state.active ? 'auth-required' : this.busy ? 'syncing' : error ? 'error' : !this.record?.initialized ? 'opening' : this.pending() ? 'pending' : 'ready';
-        return { phase, rows: this.record?.initialized ? this.all() : [], pending: this.pending(), syncedAt: this.record?.syncedAt ?? null, error };
+        return { phase, columns: this.columns(), initialized: this.record?.initialized ?? false, rows: this.record?.initialized ? this.all() : [], pending: this.pending(), syncedAt: this.record?.syncedAt ?? null, error };
     }
     subscribe(listener) { this.listeners.add(listener); try {
         listener(this.snapshot());
@@ -154,33 +167,68 @@ export class SheetTable {
         this.client.guard();
         const storage = this.client.options.storage, record = await storage.read(this.key) ?? await storage.update(this.key, (current) => current ?? emptyTable(this.key, this.target));
         this.publish(record);
-        if (!record.initialized || options.refresh)
+        if (!options.cachedOnly && (!record.initialized || options.refresh))
             await this.refresh({ create: options.create });
         this.client.schedule(this);
         return this.snapshot();
     }
-    async set(key, patch) {
+    async transaction(change) {
         this.client.guard();
-        validateKey(key);
         this.raw();
-        const values = Object.fromEntries(Object.entries(patch).map(([field, value]) => { const column = this.definition.columns[field]; if (!Object.prototype.hasOwnProperty.call(this.definition.columns, field) || !column || value === undefined)
-            throw new SheetbaseError('invalid-value', `Unknown or undefined field: ${field}`); return [column.header, column.encode(value)]; }));
-        if (!Object.keys(values).length)
-            return;
         const guard = this.client.capture();
-        const result = await this.client.options.storage.update(this.key, (record) => {
+        const result = await this.client.options.storage.update(this.key, record => {
             guard();
             if (!record?.initialized)
                 throw new SheetbaseError('schema', 'The table is not initialized.');
             assertRecord(record, this.target);
-            const operations = compact([...record.operations, { id: crypto.randomUUID(), key, values }], record.batch?.operationIds);
-            return { ...record, operations, error: null };
+            const added = [], transactionId = crypto.randomUUID();
+            const state = () => project(record.base, record.columns ?? [], [...record.operations, ...added], !!this.target.dynamic);
+            const structural = (schema) => {
+                if (!this.definition.dynamic)
+                    throw new SheetbaseError('schema', 'Enable dynamic columns before changing the schema.');
+                added.push({ id: crypto.randomUUID(), key: '', values: {}, schema, transaction: transactionId });
+                validateColumns(state().columns, this.target.keyColumn);
+                this.codecs(state().columns);
+            };
+            const table = this;
+            const transaction = {
+                get columns() { return state().columns; },
+                get(key) {
+                    const current = state(), values = current.rows[key];
+                    if (!Object.prototype.hasOwnProperty.call(current.rows, key))
+                        return undefined;
+                    return { key, values: Object.fromEntries(Object.entries(table.codecs(current.columns)).map(([field, column]) => [field, column.decode(values[table.definition.dynamic ? field : column.header] ?? '')])) };
+                },
+                set(key, patch) {
+                    validateKey(key);
+                    const codecs = table.codecs(state().columns);
+                    const values = Object.fromEntries(Object.entries(patch).map(([field, value]) => {
+                        const column = codecs[field];
+                        if (!Object.prototype.hasOwnProperty.call(codecs, field) || !column || value === undefined)
+                            throw new SheetbaseError('invalid-value', `Unknown or undefined field: ${field}`);
+                        return [table.definition.dynamic ? field : column.header, column.encode(value)];
+                    }));
+                    if (Object.keys(values).length)
+                        added.push({ id: crypto.randomUUID(), key, values, transaction: transactionId });
+                },
+                addColumn(column) { structural({ type: 'add', column: structuredClone(column) }); },
+                renameColumn(id, header) { structural({ type: 'rename', id, header }); },
+                removeColumn(id) { structural({ type: 'remove', id }); },
+            };
+            const returned = change(transaction);
+            if (returned && typeof returned.then === 'function')
+                throw new SheetbaseError('invalid-value', 'Transactions must be synchronous.');
+            return { ...record, operations: compact([...record.operations, ...added], record.batch?.operationIds), error: null };
         });
         guard();
         this.publish(result);
         this.client.schedule(this);
     }
-    async delete(key) { await this.set(key, Object.fromEntries(Object.keys(this.definition.columns).map((field) => [field, null]))); }
+    async set(key, patch) { const captured = structuredClone(patch); await this.transaction(transaction => transaction.set(key, captured)); }
+    async delete(key) { await this.transaction(transaction => transaction.set(key, Object.fromEntries(Object.keys(this.codecs(transaction.columns)).map(field => [field, null])))); }
+    async addColumn(column) { await this.transaction(transaction => transaction.addColumn(column)); }
+    async renameColumn(id, header) { await this.transaction(transaction => transaction.renameColumn(id, header)); }
+    async removeColumn(id) { await this.transaction(transaction => transaction.removeColumn(id)); }
     async export() { return this.client.options.storage.read(this.key); }
     async refresh(options = {}) {
         const guard = this.client.capture();
@@ -191,16 +239,24 @@ export class SheetTable {
             this.emit();
             let failure;
             try {
-                const base = await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, async () => {
+                const remote = await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, async () => {
                     if (options.create)
                         await this.client.options.remote.initialize(this.target, guard);
-                    const rows = await this.client.options.remote.read(this.target, guard);
+                    const columns = this.target.dynamic ? await this.client.options.remote.readSchema?.(this.target, guard) : undefined;
+                    if (this.target.dynamic && !columns)
+                        throw new SheetbaseError('unsupported', 'The remote does not support dynamic columns.');
+                    if (columns) {
+                        validateColumns(columns, this.target.keyColumn);
+                        this.codecs(columns);
+                    }
+                    const rows = await this.client.options.remote.read({ ...this.target, columns }, guard);
                     for (const [key, values] of Object.entries(rows))
-                        this.decode(key, values);
-                    return rows;
+                        this.decode(key, values, columns);
+                    return { rows, columns };
                 });
                 guard();
-                const record = await this.client.options.storage.update(this.key, (old) => { guard(); const next = old ?? emptyTable(this.key, this.target); assertRecord(next, this.target); return { ...next, base, initialized: true, syncedAt: Date.now(), error: null }; });
+                const record = await this.client.options.storage.update(this.key, (old) => { guard(); const next = old ?? emptyTable(this.key, this.target); assertRecord(next, this.target); const projected = project(remote.rows, remote.columns ?? [], next.operations, !!this.target.dynamic); for (const [key, values] of Object.entries(projected.rows))
+                    this.decode(key, values, projected.columns); return { ...next, base: remote.rows, columns: remote.columns, initialized: true, syncedAt: Date.now(), error: null }; });
                 this.publish(record);
             }
             catch (reason) {
@@ -238,16 +294,20 @@ export class SheetTable {
                         if (record.batch)
                             return record;
                         const operations = compact(record.operations);
-                        return { ...record, operations, batch: { id: crypto.randomUUID(), operationIds: operations.slice(0, 100).map((operation) => operation.id) } };
+                        let end = Math.min(100, operations.length);
+                        while (end < operations.length && operations[end - 1].transaction && operations[end - 1].transaction === operations[end].transaction)
+                            end++;
+                        return { ...record, operations, batch: { id: crypto.randomUUID(), operationIds: operations.slice(0, end).map((operation) => operation.id) } };
                     });
                     const batch = frozen.batch, operations = frozen.operations.filter((operation) => batch.operationIds.includes(operation.id));
-                    await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, () => this.client.options.remote.commit(this.target, operations, batch.id, guard));
+                    const remote = await this.client.options.storage.withLock(`file:${this.target.accountId}:${this.target.spreadsheetId}`, () => this.client.options.remote.commit({ ...this.target, columns: frozen.columns }, operations, batch.id, guard));
                     guard();
                     const acknowledged = await this.client.options.storage.update(this.key, (record) => {
                         guard();
                         if (!record)
                             throw new SheetbaseError('storage', 'The table disappeared.');
-                        return { ...record, base: apply(record.base, operations), operations: record.operations.filter((operation) => !batch.operationIds.includes(operation.id)), batch: null, syncedAt: Date.now(), error: null };
+                        const next = remote ?? project(record.base, record.columns ?? [], operations, !!this.target.dynamic);
+                        return { ...record, base: next.rows, columns: next.columns, operations: record.operations.filter((operation) => !batch.operationIds.includes(operation.id)), batch: null, syncedAt: Date.now(), error: null };
                     });
                     this.publish(acknowledged);
                 }

@@ -56,9 +56,9 @@ Zámok tabuľky serializuje čítanie a synchronizáciu medzi klientmi používa
 
 - Kľúč je vždy stĺpec A; čítanie bez hlavičky a ľubovoľné relačné dotazy nie sú podporované.
 - Schéma má fingerprint, ale migračný protokol zatiaľ nie. SDK chybu neskrýva vymazaním cache.
-- Žiadne fyzické mazanie riadkov, automatické premenovanie stĺpcov ani import formátu Fero Trackera.
+- Žiadne fyzické mazanie riadkov. Dynamické zmeny stĺpcov sú explicitné; dáta predchádzajúcej aplikácie sa neimportujú.
 - Automatické opakované pokusy sú konečné; bežná chyba 400/schema nie je dôvod na nekonečný retry.
-- Web Locks sú požiadavka cross-tab synchronizácie s IndexedDB. Bez nich je sync odmietnutý, aby sa nepredstierala bezpečná koordinácia.
+- IndexedDB synchronizácia používa Web Locks alebo obnovované leases v store `leases` (verzia databázy 2).
 - Zámky nefungujú medzi nezávislými zariadeniami. Súbežná zmena štruktúry medzi index read a zápisom zostáva konfliktom.
 - Žiadne serverové tajomstvá, proxy, analytika, OAuth UI alebo publikovaný endpoint.
 

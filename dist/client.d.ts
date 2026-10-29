@@ -1,4 +1,4 @@
-import { SheetbaseError, type ClientOptions, type Columns, type Row, type Snapshot, type StoredTable, type TableDefinition, type Target, type Values } from './types.js';
+import { SheetbaseError, type ClientOptions, type Columns, type Row, type Snapshot, type StoredTable, type TableDefinition, type Target, type Values, type DynamicColumn, type Transaction } from './types.js';
 export declare class SheetbaseClient {
     readonly accountId: string;
     readonly options: ClientOptions;
@@ -45,6 +45,8 @@ export declare class SheetTable<C extends Columns> {
     reload(): Promise<void>;
     private raw;
     private decode;
+    columns(): DynamicColumn[];
+    private codecs;
     all(): Row<C>[];
     get(key: string): Row<C> | undefined;
     pending(): number;
@@ -56,9 +58,14 @@ export declare class SheetTable<C extends Columns> {
     open(options?: {
         create?: boolean;
         refresh?: boolean;
+        cachedOnly?: boolean;
     }): Promise<Snapshot<C>>;
+    transaction(change: (transaction: Transaction<C>) => void): Promise<void>;
     set(key: string, patch: Partial<Values<C>>): Promise<void>;
     delete(key: string): Promise<void>;
+    addColumn(column: DynamicColumn): Promise<void>;
+    renameColumn(id: string, header: string): Promise<void>;
+    removeColumn(id: string): Promise<void>;
     export(): Promise<StoredTable | null>;
     refresh(options?: {
         create?: boolean;
