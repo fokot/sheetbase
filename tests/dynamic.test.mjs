@@ -74,22 +74,3 @@ test('a remote removal cannot hide queued values during refresh', async () => {
   const readSchema=remote.readSchema;remote.readSchema=async()=>[];
   await assert.rejects(table.refresh(),/no longer exists/);assert.equal(table.get('day').values.a,'pending');assert.equal(table.pending(),1);remote.readSchema=readSchema;client.dispose();
 });
-
-test('the optional duplicate-key policy preserves last-row clears and writes every physical match', async () => {
-  const env = await google([['Date','Count'],['day','first']]);
-  env.rows.push(['day','last']);
-  const client=createSheetbase({accountId:'alice',storage:createMemoryStorage(),remote:env.remote,autoSync:false});
-  const table=client.table({...definition,duplicateKeys:'last'});await table.open();const id=table.columns()[0].id;assert.equal(table.get('day').values[id],'last');
-  await table.set('day',{[id]:'edited'});await table.sync();assert.equal(env.rows[1][1],'edited');assert.equal(env.rows[2][1],'edited');
-  env.rows[2][1]='';await table.refresh();assert.equal(table.get('day'),undefined);client.dispose();env.client.dispose();
-});
-test('a migrated legacy receipt recovers renamed exercise IDs before sending newer values', async () => {
-  const env=await googleFixture({remoteOptions:{legacyLedgers:['FeroTrackerSync']}});
-  env.rows.splice(0,env.rows.length,['Date','Renamed'],['day','7']);
-  env.sheets.push({properties:{sheetId:9,title:'FeroTrackerSync',gridProperties:{rowCount:1000,columnCount:2}},rows:[['Batch ID','Saved at'],['old-batch','saved']]});
-  const client=createSheetbase({accountId:'alice',storage:createMemoryStorage(),remote:env.remote,autoSync:false}),table=client.table(definition);
-  await table.import({base:{day:{original:'5'}},columns:[{id:'original',header:'Old',type:'text'}],initialized:true,syncedAt:1,
-    operations:[{id:'old',key:'',values:{},schema:{type:'rename',id:'original',header:'Renamed'}},{id:'new',key:'day',values:{original:'9'}}],batch:{id:'old-batch',operationIds:['old']}});
-  await table.open({cachedOnly:true});await table.sync();assert.equal(table.get('day').values.original,'9');assert.equal(env.rows[1][1],'9');assert.equal(table.columns()[0].id,'original');
-  assert.equal(env.sheets.find(sheet=>sheet.properties.title==='Definitions').rows[1][0],'original');client.dispose();env.client.dispose();
-});

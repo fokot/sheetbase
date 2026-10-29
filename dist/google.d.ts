@@ -4,8 +4,6 @@ export interface GoogleRemoteOptions {
     getCredentials: () => Credentials | Promise<Credentials>;
     fetch?: typeof fetch;
     timeoutMs?: number;
-    /** Optional receipt tabs used by an earlier application, checked during cache migration. */
-    legacyLedgers?: string[];
 }
 export declare function createGoogleSheetsRemote(options: GoogleRemoteOptions): Remote;
 /** A deterministic backend for examples/tests. It never calls Google. */

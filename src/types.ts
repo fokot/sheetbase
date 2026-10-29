@@ -18,8 +18,6 @@ export interface TableDefinition<C extends Columns> {
   sheet: string;
   /** The first column (A). Its values must be unique, non-empty strings. */
   keyColumn: string;
-  /** Optional compatibility mode: read the last duplicate key, update all physical matches. */
-  duplicateKeys?: 'last';
   columns: C;
   /** Dynamic columns are discovered by stable IDs in a separate metadata tab. */
   dynamic?: { sheet: string; defaultType: string; codecs: Record<string, (header: string) => Column<any>> };
@@ -37,7 +35,6 @@ export interface Transaction<C extends Columns> {
 }
 export interface Target {
   accountId: string; spreadsheetId: string; sheet: string; keyColumn: string;
-  duplicateKeys?: 'last';
   headers: string[]; fingerprint: string;
   dynamic?: { sheet: string; defaultType: string };
   columns?: DynamicColumn[];

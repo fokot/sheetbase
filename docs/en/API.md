@@ -121,12 +121,9 @@ await journal.removeColumn('pages');
 - `columns(): DynamicColumn[]` returns the projected `{ id, header, type }` schema.
 - `addColumn(column)`, `renameColumn(id, header)`, `removeColumn(id)` enqueue durable schema changes.
 - `transaction(tx => { ... })` applies synchronous `tx.get`, `tx.set`, `tx.addColumn`, `tx.renameColumn`, `tx.removeColumn` to the latest record in one storage transaction. Validation failure rolls back every change. `tx.columns` reflects preceding changes in the callback.
-- `import({ base, columns, operations, batch, initialized, syncedAt })` seeds an empty cache during a migration. Existing initialized records and queues are never replaced. Data is raw text keyed by stable column ID for dynamic tables. Import retains frozen IDs; callers own conversion of their legacy format.
 - `open({ cachedOnly: true })` restores the cache without opening a network connection.
-- `duplicateKeys: 'last'` optionally reads the last physical duplicate, including clears, and writes every matching row. The default rejects duplicates.
 
 Dynamic Google tables own a separate metadata tab named by `dynamic.sheet`, with `ID`, `Name`, `Type` headers. All data headers are managed; unrelated tabs are preserved. `dynamic.defaultType` assigns a codec type to existing columns without metadata. Register stable, versioned codec types in `dynamic.codecs`. The remote stores schema operations and receipts in the same atomic Sheets batch, and keeps structural transactions together across batch boundaries. A schema refresh that conflicts with pending values fails before replacing the old local base.
 
-`createGoogleSheetsRemote({ getCredentials, fetch?, timeoutMs?, legacyLedgers? })` can check old receipt tabs containing `Batch ID`, `Saved at` during migrations. A matching receipt reloads current data and stable column IDs before acknowledging the original frozen batch.
 
 Custom dynamic remotes implement `readSchema(target, guard)` and return raw values by column ID. `commit()` receives acknowledged `target.columns` and operations with optional `schema` and `transaction`. It may return `{ rows, columns }` after structural writes or receipt recovery; otherwise the client applies acknowledged operations locally. Storage adapters now implement `list()`.

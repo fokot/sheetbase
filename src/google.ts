@@ -28,7 +28,7 @@ function validate(tab: Tab, target: Target): Map<string, number> {
   const positions = new Map<string, number>();
   for (const name of target.headers) { const index = header.indexOf(name); if (index < 1) throw new SheetbaseError('schema', `Missing column: ${name}. Pending changes are retained.`); positions.set(name, index); }
   const seen = new Set<string>();
-  for (const row of tab.rows.slice(1)) if (row[0]) { if (seen.has(row[0]) && target.duplicateKeys !== 'last') throw new SheetbaseError('schema', `Duplicate row key: ${row[0]}. Resolve it in Sheets before syncing.`); seen.add(row[0]); }
+  for (const row of tab.rows.slice(1)) if (row[0]) { if (seen.has(row[0])) throw new SheetbaseError('schema', `Duplicate row key: ${row[0]}. Resolve it in Sheets before syncing.`); seen.add(row[0]); }
   return positions;
 }
 function ledgerBatches(tab?: Tab): Map<string, string> {
@@ -44,7 +44,7 @@ function dynamicSchema(table: Tab, definitions: Tab | undefined, target: Target)
   const headers = table.rows[0].slice(1);
   if (headers.some(header => !header.trim())) throw new SheetbaseError('schema', 'Dynamic column headers cannot be empty.');
   if (known.some(row => !headers.includes(row[1]))) throw new SheetbaseError('schema', 'A defined column is missing from the table. Repair the sheet before syncing.');
-  const columns = headers.map(header => { const entry = known.find(row => row[1] === header); return { id: entry?.[0] ?? target.columns?.find(column => column.header === header)?.id ?? `legacy:${header}`, header, type: entry?.[2] ?? target.columns?.find(column => column.header === header)?.type ?? target.dynamic!.defaultType }; });
+  const columns = headers.map(header => { const entry = known.find(row => row[1] === header); return { id: entry?.[0] ?? `column:${header}`, header, type: entry?.[2] ?? target.dynamic!.defaultType }; });
   validateColumns(columns, target.keyColumn); return columns;
 }
 function rawDynamic(table: Tab, columns: DynamicColumn[]): TableState {
@@ -60,8 +60,6 @@ export interface GoogleRemoteOptions {
   getCredentials: () => Credentials | Promise<Credentials>;
   fetch?: typeof fetch;
   timeoutMs?: number;
-  /** Optional receipt tabs used by an earlier application, checked during cache migration. */
-  legacyLedgers?: string[];
 }
 export function createGoogleSheetsRemote(options: GoogleRemoteOptions): Remote {
   const metadata = new Map<string, { expires: number; sheets: Properties[] }>();
@@ -100,7 +98,7 @@ export function createGoogleSheetsRemote(options: GoogleRemoteOptions): Remote {
   async function commitDynamic(target: Target, operations: Operation[], batchId: string, guard: Guard): Promise<void | TableState> {
     const structural = operations.some(operation => operation.schema);
     const sheets = await meta(target, guard, structural);
-    const names = [target.dynamic!.sheet, LEDGER, ...(options.legacyLedgers ?? [])];
+    const names = [target.dynamic!.sheet, LEDGER];
     const ranges = structural ? [quote(target.sheet)] : [`${quote(target.sheet)}!1:1`, `${quote(target.sheet)}!A2:A`];
     for (const name of names) if (sheets.some(sheet => sheet.title === name)) ranges.push(quote(name));
     const result = await tabs(target, ranges, guard), table = result.find(tab => tab.properties.title === target.sheet);
@@ -108,14 +106,8 @@ export function createGoogleSheetsRemote(options: GoogleRemoteOptions): Remote {
     const ledger = result.find(tab => tab.properties.title === LEDGER), receipts = ledgerBatches(ledger);
     const receipt = receipts.get(batchId);
     if (receipt !== undefined && receipt !== target.sheet) throw new SheetbaseError('schema', 'A batch receipt belongs to another table.');
-    const legacyReceipt = (options.legacyLedgers ?? []).some(name => {
-      const tab = result.find(tab => tab.properties.title === name);
-      if (tab?.rows.length && tab.rows[0][0] !== 'Batch ID') throw new SheetbaseError('schema', 'Legacy receipt tab has an incompatible header.');
-      return tab?.rows.slice(1).some(row => row[0] === batchId);
-    });
-    if (receipt !== undefined || legacyReceipt) {
-      const recovered = legacyReceipt ? { ...target, columns: project({}, target.columns ?? [], operations).columns } : target;
-      const columns = await remote.readSchema!(recovered, guard), rows = await remote.read({ ...target, columns }, guard);
+    if (receipt !== undefined) {
+      const columns = await remote.readSchema!(target, guard), rows = await remote.read({ ...target, columns }, guard);
       return { rows, columns };
     }
     let definitions = result.find(tab => tab.properties.title === target.dynamic!.sheet);

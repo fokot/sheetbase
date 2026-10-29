@@ -98,9 +98,9 @@ await journal.removeColumn('pages');
 ```
 Dynamic tables store stable column IDs, names and codec types in a separate tab with the headers `ID`, `Name`, `Type`. This metadata tab is owned by the dynamic table; all nonempty data headers are registered. Renames keep the ID and all history; removals delete the physical column and its metadata. Column changes and associated values are saved in one local transaction and one remote batch, including across batch-size boundaries. They survive reloads and lost responses. `tx.get()` reads the latest durable projection inside the local transaction, so concurrent toggles do not use stale UI state. Callbacks must be synchronous.
 
-`columns()` and `snapshot().columns` expose the current schema. `open({ cachedOnly: true })` restores data without requiring Google. `storage.list()` enumerates cached queues for backups and reconnecting old files. `table.import()` only seeds an empty/uninitialized cache, retaining frozen operation and batch IDs. The optional Google adapter setting `legacyLedgers: ['OldReceiptTab']` recognizes old `Batch ID` receipts during migration.
+`columns()` and `snapshot().columns` expose the current schema. `open({ cachedOnly: true })` restores data without requiring Google. `storage.list()` enumerates cached queues for backups and reconnecting files.
 
-By default duplicate keys are rejected. `duplicateKeys: 'last'` is an explicit compatibility policy: the last physical row wins on reads, including clears; writes update every matching row. It never merges or deletes rows.
+Record keys must be unique. Duplicate keys stop synchronization until the sheet is corrected.
 
 ## Offline and synchronization
 
@@ -117,7 +117,7 @@ The client reacts to browser online and focus events, with bounded retries. Auth
 ## Limits of version 0.2
 
 - Fixed schemas still reject incompatible fingerprints. Opt into dynamic tables for durable column additions, renames, and removals.
-- A different schema fingerprint rejects existing local data. Sync or export pending changes using the old schema first; Use `table.import()` to seed a new cache from an application-owned migration.
+- A different schema fingerprint rejects existing local data. Use the registered schema to sync or export pending changes before replacing it.
 - Google file permissions determine access. The SDK adds no row-level security.
 - Across independent devices, the last successful cell write wins. Sorting between the index read and write can cause a conflict; this is not a distributed database.
 - IndexedDB synchronization uses Web Locks, with renewable IndexedDB leases as a fallback. Memory adapters coordinate within one JavaScript instance.

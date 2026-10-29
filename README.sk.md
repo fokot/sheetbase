@@ -120,9 +120,9 @@ await journal.removeColumn('pages');
 ```
 Dynamická tabuľka uchová stabilné ID, názvy a typy kodekov vo vlastnom liste s hlavičkou `ID`, `Name`, `Type`. Tento list patrí tabuľke; registrujú sa všetky neprázdne hlavičky dát. Premenovanie zachová ID a históriu, odstránenie vymaže fyzický stĺpec aj metadáta. Zmena stĺpca a súvisiace hodnoty sa uložia v jednej lokálnej transakcii a jednej vzdialenej dávke aj na hranici veľkosti dávok. Prežijú reload aj stratenú odpoveď. `tx.get()` číta najnovšie trvalé dáta priamo v lokálnej transakcii. Callback musí byť synchrónny.
 
-`columns()` a `snapshot().columns` poskytujú aktuálnu schému. `open({ cachedOnly: true })` obnoví cache bez Googlu. `storage.list()` vráti všetky lokálne fronty pre zálohu a opätovné pripojenie. `table.import()` inicializuje iba prázdnu cache a zachová identitu rozpracovaných dávok. Google adaptér môže cez `legacyLedgers: ['OldReceiptTab']` skontrolovať staré potvrdenia s hlavičkou `Batch ID`.
+`columns()` a `snapshot().columns` poskytujú aktuálnu schému. `open({ cachedOnly: true })` obnoví cache bez Googlu. `storage.list()` vráti všetky lokálne fronty pre zálohu a opätovné pripojenie.
 
-Predvolene sú duplicitné kľúče odmietnuté. Voľba `duplicateKeys: 'last'` použije posledný fyzický riadok vrátane vyprázdnení a pri zápise upraví všetky výskyty kľúča. Riadky nezlučuje ani nemaže.
+Kľúče záznamov musia byť jedinečné. Duplicitné kľúče zastavia synchronizáciu, kým sa tabuľka neopraví.
 
 ## Offline a synchronizácia
 
@@ -139,7 +139,7 @@ Klient reaguje na návrat internetu a aktívne okno; automatické pokusy majú k
 ## Hranice verzie 0.2
 
 - Fixná schéma naďalej odmieta nekompatibilný fingerprint. Dynamické tabuľky podporujú trvalé pridávanie, premenovanie a mazanie stĺpcov.
-- Zmena fingerprintu schémy so starými dátami je odmietnutá. Najprv so starou schémou synchronizuj/exportuj frontu; Na prvotný import cache použi `table.import()`.
+- Zmena fingerprintu schémy so starými dátami je odmietnutá. Pred nahradením schémy synchronizuj alebo exportuj čakajúce zmeny.
 - Práva sú práva Google súboru. SDK nepridáva riadkové bezpečnostné pravidlá.
 - Medzi nezávislými zariadeniami platí posledný úspešný zápis do bunky. Zoradenie listu medzi načítaním indexu a zápisom môže byť súbežný konflikt; nejde o distribuovanú databázu.
 - IndexedDB synchronizácia používa Web Locks a obnovované IndexedDB leases ako zálohu. V pamäťovom adaptéri sa zámky koordinujú v jednej JS inštancii.

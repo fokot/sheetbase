@@ -36,7 +36,7 @@ export class SheetbaseClient {
             throw new SheetbaseError('schema', 'Provide a sheet, spreadsheet ID and distinct, non-empty column headers.');
         if (definition.dynamic && (!definition.dynamic.sheet.trim() || definition.dynamic.sheet === definition.sheet || definition.dynamic.sheet === '_Sheetbase' || !Object.prototype.hasOwnProperty.call(definition.dynamic.codecs, definition.dynamic.defaultType)))
             throw new SheetbaseError('schema', 'Dynamic tables need a separate metadata tab and a registered default codec.');
-        const target = { accountId: this.accountId, spreadsheetId: definition.spreadsheetId, sheet: definition.sheet, keyColumn: definition.keyColumn, headers: entries.map(([, column]) => column.header), ...(definition.duplicateKeys ? { duplicateKeys: definition.duplicateKeys } : {}), fingerprint: JSON.stringify(definition.dynamic ? [definition.keyColumn, 'dynamic:v1', definition.dynamic.sheet, definition.dynamic.defaultType] : [definition.keyColumn, ...entries.map(([field, column]) => [field, column.header, column.codec])]), ...(definition.dynamic ? { dynamic: { sheet: definition.dynamic.sheet, defaultType: definition.dynamic.defaultType } } : {}) };
+        const target = { accountId: this.accountId, spreadsheetId: definition.spreadsheetId, sheet: definition.sheet, keyColumn: definition.keyColumn, headers: entries.map(([, column]) => column.header), fingerprint: JSON.stringify(definition.dynamic ? [definition.keyColumn, 'dynamic:v1', definition.dynamic.sheet, definition.dynamic.defaultType] : [definition.keyColumn, ...entries.map(([field, column]) => [field, column.header, column.codec])]), ...(definition.dynamic ? { dynamic: { sheet: definition.dynamic.sheet, defaultType: definition.dynamic.defaultType } } : {}) };
         const key = identity(this.options.namespace ?? 'sheetbase', target), existing = this.tables.get(key);
         if (existing) {
             if (existing.target.fingerprint !== target.fingerprint)
@@ -229,21 +229,6 @@ export class SheetTable {
     async addColumn(column) { await this.transaction(transaction => transaction.addColumn(column)); }
     async renameColumn(id, header) { await this.transaction(transaction => transaction.renameColumn(id, header)); }
     async removeColumn(id) { await this.transaction(transaction => transaction.removeColumn(id)); }
-    /** Seed a new cache during an application-owned migration. Never replaces existing initialized data. */
-    async import(data) {
-        const guard = this.client.capture();
-        const result = await this.client.options.storage.update(this.key, current => {
-            guard();
-            if (current?.initialized || current?.operations.length)
-                return current;
-            const columns = project(data.base, data.columns ?? [], data.operations, !!this.target.dynamic).columns;
-            validateColumns(columns, this.target.keyColumn);
-            this.codecs(columns);
-            return { ...emptyTable(this.key, this.target), ...structuredClone(data) };
-        });
-        guard();
-        this.publish(result);
-    }
     async export() { return this.client.options.storage.read(this.key); }
     async refresh(options = {}) {
         const guard = this.client.capture();

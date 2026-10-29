@@ -66,10 +66,6 @@ export declare class SheetTable<C extends Columns> {
     addColumn(column: DynamicColumn): Promise<void>;
     renameColumn(id: string, header: string): Promise<void>;
     removeColumn(id: string): Promise<void>;
-    /** Seed a new cache during an application-owned migration. Never replaces existing initialized data. */
-    import(data: Pick<StoredTable, 'base' | 'operations' | 'batch' | 'initialized' | 'syncedAt'> & {
-        columns?: DynamicColumn[];
-    }): Promise<void>;
     export(): Promise<StoredTable | null>;
     refresh(options?: {
         create?: boolean;

@@ -56,7 +56,7 @@ Zámok tabuľky serializuje čítanie a synchronizáciu medzi klientmi používa
 
 - Kľúč je vždy stĺpec A; čítanie bez hlavičky a ľubovoľné relačné dotazy nie sú podporované.
 - Schéma má fingerprint, ale migračný protokol zatiaľ nie. SDK chybu neskrýva vymazaním cache.
-- Žiadne fyzické mazanie riadkov. Dynamické zmeny stĺpcov sú explicitné; staré formáty konvertuje aplikácia cez `table.import()`.
+- Žiadne fyzické mazanie riadkov. Dynamické zmeny stĺpcov sú explicitné; dáta predchádzajúcej aplikácie sa neimportujú.
 - Automatické opakované pokusy sú konečné; bežná chyba 400/schema nie je dôvod na nekonečný retry.
 - IndexedDB synchronizácia používa Web Locks alebo obnovované leases v store `leases` (verzia databázy 2).
 - Zámky nefungujú medzi nezávislými zariadeniami. Súbežná zmena štruktúry medzi index read a zápisom zostáva konfliktom.
