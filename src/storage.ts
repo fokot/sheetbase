@@ -9,6 +9,7 @@ export function createMemoryStorage(): Storage {
   let tail: Promise<unknown> = Promise.resolve();
   return {
     kind: 'memory',
+    async list() { return structuredClone([...records.values()]); },
     async read(key) { return structuredClone(records.get(key) ?? null); },
     update(key, change) {
       const work = tail.catch(() => {}).then(() => { const old = records.get(key); const record = structuredClone({ ...change(structuredClone(old ?? null)), revision: (old?.revision ?? 0) + 1 }); records.set(key, record); for (const listener of listeners) { try { listener(key); } catch { /* Save already committed. */ } } return structuredClone(record); });
@@ -29,16 +30,36 @@ export function createIndexedDBStorage(name = 'sheetbase'): Storage {
     if (opening) return opening;
     opening = new Promise<IDBDatabase>((resolve, reject) => {
       if (typeof indexedDB === 'undefined') { reject(new SheetbaseError('storage', 'IndexedDB is unavailable.')); return; }
-      const request = indexedDB.open(name, 1);
-      request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains('tables')) request.result.createObjectStore('tables', { keyPath: 'key' }); };
+      const request = indexedDB.open(name, 2);
+      request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains('tables')) request.result.createObjectStore('tables', { keyPath: 'key' }); if (!request.result.objectStoreNames.contains('leases')) request.result.createObjectStore('leases', { keyPath: 'key' }); };
       request.onerror = () => reject(new SheetbaseError('storage', 'Cannot open local storage.'));
       request.onblocked = () => reject(new SheetbaseError('storage', 'Close older tabs before upgrading storage.'));
       request.onsuccess = () => { const db = request.result; if (closed) { db.close(); reject(new SheetbaseError('closed', 'Storage is closed.')); return; } db.onversionchange = () => { db.close(); opening = null; }; resolve(db); };
     }).catch((error: unknown) => { opening = null; throw error; });
     return opening;
   };
+  const lease = async (key: string, owner: string, action: 'acquire' | 'renew' | 'release'): Promise<boolean> => {
+    const db = await database();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('leases', 'readwrite'), store = transaction.objectStore('leases'); let acquired = false;
+      const request = store.get(key);
+      request.onsuccess = () => {
+        const current = request.result as { owner: string; expires: number } | undefined;
+        if (action === 'release') { if (current?.owner === owner) store.delete(key); return; }
+        if (action === 'acquire' ? !current || current.expires <= Date.now() || current.owner === owner : current?.owner === owner && current.expires > Date.now()) {
+          acquired = true; store.put({ key, owner, expires: Date.now() + 90000 });
+        }
+      };
+      transaction.oncomplete = () => resolve(acquired);
+      transaction.onabort = transaction.onerror = () => reject(new SheetbaseError('storage', 'Cannot coordinate local synchronization.'));
+    });
+  };
   return {
     kind: 'indexeddb',
+    async list() {
+      const db = await database();
+      return new Promise((resolve, reject) => { const request = db.transaction('tables').objectStore('tables').getAll(); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(asError(request.error, 'storage')); });
+    },
     async read(key) {
       const db = await database();
       return new Promise((resolve, reject) => { const request = db.transaction('tables').objectStore('tables').get(key); request.onsuccess = () => resolve(request.result ?? null); request.onerror = () => reject(asError(request.error, 'storage')); });
@@ -55,8 +76,16 @@ export function createIndexedDBStorage(name = 'sheetbase'): Storage {
     },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     async withLock<T>(key: string, task: () => Promise<T>): Promise<T> {
-      if (typeof navigator === 'undefined' || !navigator.locks) throw new SheetbaseError('unsupported', 'Cross-tab synchronization requires Web Locks. Local edits remain saved.');
-      return navigator.locks.request(`${name}:lock:${key}`, task);
+      if (typeof navigator !== 'undefined' && navigator.locks) return navigator.locks.request(`${name}:lock:${key}`, task);
+      const owner = crypto.randomUUID();
+      while (!await lease(key, owner, 'acquire')) await new Promise(resolve => setTimeout(resolve, 50));
+      let valid = true;
+      const renewal = setInterval(() => { void lease(key, owner, 'renew').then(renewed => { if (!renewed) valid = false; }).catch(() => { valid = false; }); }, 20000);
+      try {
+        const result = await task();
+        if (!valid) throw new SheetbaseError('storage', 'The synchronization lease was lost. Retry to recover the saved batch.');
+        return result;
+      } finally { clearInterval(renewal); await lease(key, owner, 'release').catch(() => {}); }
     },
     close() { closed = true; void opening?.then((db) => db.close()).catch(() => {}); channel?.close(); listeners.clear(); },
   };

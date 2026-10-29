@@ -56,9 +56,9 @@ The table lock serializes reads and sync across clients sharing storage. A file 
 
 - Keys are in column A; headerless reads and arbitrary relational queries are not supported.
 - Schemas have fingerprints but no migration protocol. The SDK never hides a mismatch by erasing the cache.
-- No physical row deletion, automatic column renaming, or Fero Tracker imports.
+- No physical row deletion. Dynamic column changes are explicit; app-specific legacy formats are converted by the caller using `table.import()`.
 - Retries are bounded; ordinary 400/schema errors do not trigger endless attempts.
-- IndexedDB sync requires Web Locks. Without them, sync is rejected rather than pretending cross-tab coordination is safe.
+- IndexedDB sync uses Web Locks or renewable leases in the `leases` store (database version 2).
 - Locks do not extend across independent devices. Structural edits between index reading and writing remain a conflict window.
 - No server secrets, proxy, analytics, or OAuth UI.
 

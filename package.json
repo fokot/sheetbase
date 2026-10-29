@@ -1,6 +1,6 @@
 {
   "name": "@fokot/sheetbase",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A local-first, framework-independent Google Sheets client.",
   "type": "module",
@@ -22,12 +22,13 @@
   "scripts": {
     "build:lib": "tsc -p tsconfig.json",
     "build:docs": "node scripts/build-docs.mjs",
-    "test": "npm run build:lib && npm run typecheck:examples && node --test tests/client.test.mjs tests/google.test.mjs",
+    "test": "npm run build:lib && npm run typecheck:examples && node --test tests/client.test.mjs tests/google.test.mjs tests/dynamic.test.mjs tests/storage.test.mjs",
     "test:docs": "node --test tests/docs.test.mjs",
     "docs": "npm run build:docs && node scripts/serve.mjs",
     "typecheck:examples": "tsc -p tsconfig.examples.json"
   },
   "devDependencies": {
+    "fake-indexeddb": "6.2.6",
     "highlight.js": "11.12.0",
     "marked": "18.1.2",
     "typescript": "5.5.4"

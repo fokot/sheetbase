@@ -6,15 +6,15 @@
 
 Samostatná TypeScript knižnica pre osobné aplikácie, ktoré používajú Google Sheets ako vzdialené úložisko. Dáta zapisuje najprv do lokálneho úložiska, potom odosiela čakajúce zmeny v dávkach.
 
-**Funkčný prototyp na posúdenie rozhrania. Fero Tracker ho zatiaľ nepoužíva.** Zdrojový kód je na GitHube; balík nie je publikovaný v npm registry. Balík má `private: true`, nemá žiadne runtime závislosti, React ani Zustand. Google adaptér je overený simulovaným HTTP API; tento projekt sa neprihlasuje do tvojho účtu a nevykonal živé zápisy do tvojich tabuliek.
+**Verzia 0.2 pridáva trvalé dynamické stĺpce a lokálne transakcie pre integráciu trackerov.** Zdrojový kód je na GitHube; balík nie je publikovaný v npm registry. Balík má `private: true`, nemá žiadne runtime závislosti, React ani Zustand. Google adaptér je overený simulovaným HTTP API; tento projekt sa neprihlasuje do tvojho účtu a nevykonal živé zápisy do tvojich tabuliek.
 
 ## Inštalácia
 
 ```sh
-npm install github:fokot/sheetbase#v0.1.0
+npm install github:fokot/sheetbase#codex/dynamic-columns
 ```
 
-Importuj z `@fokot/sheetbase`. Tag obsahuje hotový `dist/` s JavaScriptom a TypeScript deklaráciami. Inštalácia nespúšťa build ani build dokumentácie. Balík nie je v npm registry. Alternatívne sa dá nainštalovať `.tgz` z GitHub Release.
+Importuj z `@fokot/sheetbase`. Táto vetva obsahuje hotový `dist/` s JavaScriptom a TypeScript deklaráciami. Inštalácia nespúšťa build ani build dokumentácie. Balík nie je v npm registry. Alternatívne sa dá nainštalovať `.tgz` z GitHub Release.
 
 ## Pozrieť si návrh
 
@@ -32,7 +32,7 @@ Pribalený `dist/` umožňuje spustiť príklad a testy knižnice aj bez inštal
 
 ```sh
 node examples/basic.mjs
-node --test tests/client.test.mjs tests/google.test.mjs
+node --test tests/client.test.mjs tests/google.test.mjs tests/dynamic.test.mjs
 ```
 
 Po úprave zdrojov spusti `npm run build:lib`; `npm run build:docs` zostaví dvojjazyčný web do `_site/`. Samostatný `preview.html` obsahuje vložené štýly aj celé SDK a dá sa otvoriť priamo v prehliadači. IndexedDB na `file://` závisí od prehliadača; spoľahlivý plný test používa lokálny HTTP server. Zdrojový `index.html` a `en/index.html` sú slovenská a anglická verzia webu. README aj ďalšie Markdown dokumenty sa pri builde vykreslia do HTML so syntax highlightingom. `npm run docs` zostaví a sprístupní iba `_site/`. Samostatný náhľad samotnej stránky nevolá Google, nenahráva dáta a neobsahuje tokeny.
@@ -99,6 +99,31 @@ Príklad:
 
 Texty sa zapisujú cez `userEnteredValue.stringValue`, takže text začínajúci `=` nie je prevedený na vzorec.
 
+## Dynamické stĺpce a transakcie
+
+```ts
+const journal = db.table({
+  spreadsheetId: 'existing-file-id', sheet: 'Journal', keyColumn: 'Date',
+  columns: {},
+  dynamic: {
+    sheet: 'JournalColumns', defaultType: 'text',
+    codecs: { text: column.text, number: column.number }
+  }
+});
+await journal.open({ create: true });
+await journal.transaction(tx => {
+  tx.addColumn({ id: 'pages', header: 'Pages', type: 'number' });
+  tx.set('2026-10-29', { pages: 24 });
+});
+await journal.renameColumn('pages', 'Read pages');
+await journal.removeColumn('pages');
+```
+Dynamická tabuľka uchová stabilné ID, názvy a typy kodekov vo vlastnom liste s hlavičkou `ID`, `Name`, `Type`. Tento list patrí tabuľke; registrujú sa všetky neprázdne hlavičky dát. Premenovanie zachová ID a históriu, odstránenie vymaže fyzický stĺpec aj metadáta. Zmena stĺpca a súvisiace hodnoty sa uložia v jednej lokálnej transakcii a jednej vzdialenej dávke aj na hranici veľkosti dávok. Prežijú reload aj stratenú odpoveď. `tx.get()` číta najnovšie trvalé dáta priamo v lokálnej transakcii. Callback musí byť synchrónny.
+
+`columns()` a `snapshot().columns` poskytujú aktuálnu schému. `open({ cachedOnly: true })` obnoví cache bez Googlu. `storage.list()` vráti všetky lokálne fronty pre zálohu a opätovné pripojenie. `table.import()` inicializuje iba prázdnu cache a zachová identitu rozpracovaných dávok. Google adaptér môže cez `legacyLedgers: ['OldReceiptTab']` skontrolovať staré potvrdenia s hlavičkou `Batch ID`.
+
+Predvolene sú duplicitné kľúče odmietnuté. Voľba `duplicateKeys: 'last'` použije posledný fyzický riadok vrátane vyprázdnení a pri zápise upraví všetky výskyty kľúča. Riadky nezlučuje ani nemaže.
+
 ## Offline a synchronizácia
 
 `createIndexedDBStorage()` trvalo uchová základ dát, frontu zmien a identitu rozpracovanej dávky. Dáta sú oddelené podľa namespace, účtu, súboru a listu. Po opätovnom vytvorení rovnakého klienta a zavolaní `open()` s rovnakou schémou sa čakajúca fronta obnoví. Na odoslanie sa musia zaregistrovať príslušné tabuľky; klient neskenuje a neodosiela nezaregistrované staré schémy.
@@ -111,13 +136,13 @@ Skrytý list **`_Sheetbase`** obsahuje `Batch`, `Table`, `Saved at`. Zápisy dá
 
 Klient reaguje na návrat internetu a aktívne okno; automatické pokusy majú konečný limit. Chyba prihlásenia vyžaduje reautorizáciu v aplikácii a `db.resume()`. Zmena schémy alebo duplicitný kľúč zastaví zápis a ponechá frontu. Všetky tieto správania možno overiť bez Googlu cez `createMemoryRemote()`.
 
-## Hranice verzie 0.1
+## Hranice verzie 0.2
 
-- Fixná schéma registrovaných stĺpcov; automatické migrácie, premenovanie a mazanie stĺpcov nie sú implementované.
-- Zmena fingerprintu schémy so starými dátami je odmietnutá. Najprv so starou schémou synchronizuj/exportuj frontu; presný migračný protokol je otvorená úloha.
+- Fixná schéma naďalej odmieta nekompatibilný fingerprint. Dynamické tabuľky podporujú trvalé pridávanie, premenovanie a mazanie stĺpcov.
+- Zmena fingerprintu schémy so starými dátami je odmietnutá. Najprv so starou schémou synchronizuj/exportuj frontu; Na prvotný import cache použi `table.import()`.
 - Práva sú práva Google súboru. SDK nepridáva riadkové bezpečnostné pravidlá.
 - Medzi nezávislými zariadeniami platí posledný úspešný zápis do bunky. Zoradenie listu medzi načítaním indexu a zápisom môže byť súbežný konflikt; nejde o distribuovanú databázu.
-- IndexedDB synchronizácia používa Web Locks. Bez nich zostanú lokálne zápisy zachované, ale synchronizácia vyhodí chybu `unsupported`. V pamäťovom adaptéri sa zámky koordinujú v jednej JS inštancii.
+- IndexedDB synchronizácia používa Web Locks a obnovované IndexedDB leases ako zálohu. V pamäťovom adaptéri sa zámky koordinujú v jednej JS inštancii.
 - Synchronizácia beží v otvorenej aplikácii. Service worker, cache HTML stránky, serverové úlohy a nahrávanie po zavretí prehliadača nie sú súčasťou SDK.
 - Browser môže úložisko odmietnuť alebo vymazať. `table.export()` poskytne aj neodoslané operácie pre vlastnú zálohu aplikácie.
 - Nepoužívaj serverový service-account privátny kľúč v prehliadači. Tokenový provider má byť pasívny a nesmie otvárať prihlasovacie okno pri každej požiadavke.
@@ -141,9 +166,9 @@ npm test
 npm run build:docs
 npm run test:docs
 git add package.json package-lock.json dist
-git commit -m "Release 0.1.1"
-git tag v0.1.1
-git push origin main v0.1.1
+git commit -m "Release 0.2.1"
+git tag v0.2.1
+git push origin main v0.2.1
 ```
 
 Repozitár zatiaľ nemá udelenú open-source licenciu (`UNLICENSED`). Zverejnenie kódu samo neudeľuje právo na ďalšiu distribúciu.

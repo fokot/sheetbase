@@ -1,5 +1,5 @@
 import {createGoogleSheetsRemote,createSheetbase,createMemoryStorage,column} from '../dist/index.js';
-export async function googleFixture({rows=[['Date','Walk','Pages','Note','Unmanaged'],['2026-10-27','✓','0','hello','keep']],name='Journal'}={}) {
+export async function googleFixture({rows=[['Date','Walk','Pages','Note','Unmanaged'],['2026-10-27','✓','0','hello','keep']],name='Journal',remoteOptions={}}={}) {
  let sheets=[{properties:{sheetId:0,title:name,gridProperties:{rowCount:1000,columnCount:26}},rows:structuredClone(rows)}],credentials={accountId:'alice',accessToken:'token-a'},lost=false,failed=false,mutateAuth=false;
  const calls=[];let cellsRead=0;
  const col=text=>[...text].reduce((value,char)=>value*26+char.charCodeAt(0)-64,0)-1;
@@ -12,8 +12,9 @@ export async function googleFixture({rows=[['Date','Walk','Pages','Note','Unmana
    const copy=structuredClone(sheets);
    for(const request of body.requests){
     if(request.addSheet){copy.push({properties:request.addSheet.properties,rows:[]});continue;}
-    const id=request.updateCells?.start.sheetId??request.appendCells?.sheetId??request.appendDimension?.sheetId,target=copy.find(sheet=>sheet.properties.sheetId===id);
+    const id=request.updateCells?.start.sheetId??request.appendCells?.sheetId??request.appendDimension?.sheetId??request.deleteDimension?.range.sheetId,target=copy.find(sheet=>sheet.properties.sheetId===id);
     if(!target)throw new Error('No target tab');
+    if(request.deleteDimension){const {dimension,startIndex,endIndex}=request.deleteDimension.range;if(dimension==='COLUMNS'){for(const row of target.rows)row.splice(startIndex,endIndex-startIndex);}else target.rows.splice(startIndex,endIndex-startIndex);target.properties.gridProperties[dimension==='COLUMNS'?'columnCount':'rowCount']-=endIndex-startIndex;continue;}
     if(request.appendDimension){target.properties.gridProperties[request.appendDimension.dimension==='ROWS'?'rowCount':'columnCount']+=request.appendDimension.length;continue;}
     const update=request.updateCells??request.appendCells,values=update.rows.map(row=>row.values.map(cell=>cell.userEnteredValue.stringValue));
     const start=request.updateCells?.start??{rowIndex:target.rows.length,columnIndex:0};
@@ -35,7 +36,7 @@ export async function googleFixture({rows=[['Date','Walk','Pages','Note','Unmana
    }if(data.length)response.push({properties:sheet.properties,data});
   }return result({sheets:response});
  };
- const remote=createGoogleSheetsRemote({getCredentials:()=>credentials,fetch}),client=createSheetbase({accountId:'alice',storage:createMemoryStorage(),remote,autoSync:false});
+ const remote=createGoogleSheetsRemote({getCredentials:()=>credentials,fetch,...remoteOptions}),client=createSheetbase({accountId:'alice',storage:createMemoryStorage(),remote,autoSync:false});
  const table=client.table({spreadsheetId:'test-file',sheet:name,keyColumn:'Date',columns:{walk:column.boolean('Walk'),pages:column.number('Pages'),note:column.text('Note')}});
  await table.open();return{remote,client,table,calls,get sheets(){return sheets;},get rows(){return sheets[0].rows;},get cellsRead(){return cellsRead;},loseReply(){lost=true;},failNextWrite(){failed=true;},switchAccount(){credentials={accountId:'bob',accessToken:'token-b'};},switchDuringRequest(){mutateAuth=true;}};
 }
