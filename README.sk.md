@@ -11,10 +11,10 @@ Samostatná TypeScript knižnica pre osobné aplikácie, ktoré používajú Goo
 ## Inštalácia
 
 ```sh
-npm install github:fokot/sheetbase#codex/dynamic-columns
+npm install github:fokot/sheetbase#main
 ```
 
-Importuj z `@fokot/sheetbase`. Táto vetva obsahuje hotový `dist/` s JavaScriptom a TypeScript deklaráciami. Inštalácia nespúšťa build ani build dokumentácie. Balík nie je v npm registry. Alternatívne sa dá nainštalovať `.tgz` z GitHub Release.
+Importuj z `@fokot/sheetbase`. Repozitár obsahuje hotový `dist/` s JavaScriptom a TypeScript deklaráciami. Inštalácia nespúšťa build ani build dokumentácie. Balík nie je v npm registry. Alternatívne sa dá nainštalovať `.tgz` z GitHub Release.
 
 ## Pozrieť si návrh
 

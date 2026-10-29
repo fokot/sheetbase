@@ -11,10 +11,10 @@ A local-first TypeScript library for personal apps that use Google Sheets as rem
 ## Install from GitHub
 
 ```sh
-npm install github:fokot/sheetbase#codex/dynamic-columns
+npm install github:fokot/sheetbase#main
 ```
 
-Import from `@fokot/sheetbase`. This branch includes compiled JavaScript and TypeScript declarations in `dist/`. Installation does not run a library or documentation build. The package is not published to the npm registry. An installable `.tgz` is also attached to each GitHub Release.
+Import from `@fokot/sheetbase`. The repository includes compiled JavaScript and TypeScript declarations in `dist/`. Installation does not run a library or documentation build. The package is not published to the npm registry. An installable `.tgz` is also attached to each GitHub Release.
 
 ## Quick start
 
