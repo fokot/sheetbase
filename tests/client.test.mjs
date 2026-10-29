@@ -113,3 +113,7 @@ test('resume automatically retries a queue suspended by expired authorization',a
  expired=false;env.client.options.autoSync=true;env.client.options.retry={baseDelayMs:1};env.client.resume();
  await new Promise(resolve=>setTimeout(resolve,20));assert.equal(env.table.pending(),0);env.client.dispose();
 });
+test('set captures a patch before the asynchronous local transaction yields',async()=>{
+ const env=await setup(),patch={pages:7};const saving=env.table.set('day',patch);patch.pages=999;await saving;
+ assert.equal(env.table.get('day').values.pages,7);env.client.dispose();
+});

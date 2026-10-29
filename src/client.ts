@@ -139,7 +139,7 @@ export class SheetTable<C extends Columns> {
     });
     guard(); this.publish(result); this.client.schedule(this);
   }
-  async set(key: string, patch: Partial<Values<C>>): Promise<void> { await this.transaction(transaction => transaction.set(key, patch)); }
+  async set(key: string, patch: Partial<Values<C>>): Promise<void> { const captured = structuredClone(patch); await this.transaction(transaction => transaction.set(key, captured)); }
   async delete(key: string) { await this.transaction(transaction => transaction.set(key, Object.fromEntries(Object.keys(this.codecs(transaction.columns)).map(field => [field, null])) as Partial<Values<C>>)); }
   async addColumn(column: DynamicColumn) { await this.transaction(transaction => transaction.addColumn(column)); }
   async renameColumn(id: string, header: string) { await this.transaction(transaction => transaction.renameColumn(id, header)); }

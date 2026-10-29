@@ -402,7 +402,7 @@ class SheetTable {
         this.publish(result);
         this.client.schedule(this);
     }
-    async set(key, patch) { await this.transaction(transaction => transaction.set(key, patch)); }
+    async set(key, patch) { const captured = structuredClone(patch); await this.transaction(transaction => transaction.set(key, captured)); }
     async delete(key) { await this.transaction(transaction => transaction.set(key, Object.fromEntries(Object.keys(this.codecs(transaction.columns)).map(field => [field, null])))); }
     async addColumn(column) { await this.transaction(transaction => transaction.addColumn(column)); }
     async renameColumn(id, header) { await this.transaction(transaction => transaction.renameColumn(id, header)); }
